@@ -86,7 +86,9 @@ export async function handlePlayback(
   const rec: Recording = { fileName, begin, end, disk: 0 };
 
   let ffmpeg: ReturnType<typeof spawn> | null = null;
+  let closed = false;
   const cleanup = () => {
+    closed = true;
     client.close();
     ffmpeg?.kill("SIGKILL");
   };
@@ -101,6 +103,9 @@ export async function handlePlayback(
     video.on("data", (chunk: Buffer) => {
       if (started) return;
       started = true;
+      // The client may have gone away while the NVR was starting up; don't
+      // spawn an ffmpeg nobody will ever stop.
+      if (closed) return;
       const fmt = detectCodec(chunk) === "hevc" ? "hevc" : "h264";
       const b = parseLocal(begin), e = parseLocal(end);
       const duration = b && e ? Math.max(1, (e.getTime() - b.getTime()) / 1000) : 300;
@@ -126,6 +131,11 @@ export async function handlePlayback(
       ffmpeg.stdout!.pipe(res);
       ffmpeg.stderr!.on("data", (d) => console.error("[ffmpeg]", d.toString().trim()));
       ffmpeg.on("error", (e) => res.destroyed || res.destroy(e));
+      // When the client disconnects, cleanup() kills ffmpeg while NVR data is
+      // still being piped in. The resulting EPIPE must be handled, or it is an
+      // uncaught error that takes the whole hub down.
+      ffmpeg.stdin!.on("error", () => {});
+      ffmpeg.stdout!.on("error", () => {});
       // Re-pump: write this first chunk, then pipe the rest.
       ffmpeg.stdin!.write(chunk);
       video.pipe(ffmpeg.stdin!);

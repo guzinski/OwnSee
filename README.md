@@ -78,6 +78,11 @@ an already-running go2rtc on `127.0.0.1:1984`, instead of spawning its own.
 | `NVR_HOST` | `192.168.1.100` | NVR IP, used when seeding `data/sources.json` on first run |
 | `NVR_DVRIP_PORT` | `34567` | NVR DVRIP port |
 | `HUB_EXTERNAL_GO2RTC` | unset | If set, don't spawn go2rtc; proxy to an external one |
+| `HUB_TLS_PORT` | `8443` | HTTPS listener for paired phones (remote access) |
+| `HUB_TLS` | on | Set to `0` to disable the HTTPS listener |
+| `HUB_PUBLIC_URL` | unset | Remote address phones use, e.g. `https://<vps-ip>:8443`; goes into the pairing QR |
+| `HUB_LAN_URL` | page origin | Home address phones use, e.g. `http://<hub-lan-ip>:3000`. Needed when you open the web UI via `localhost` |
+| `HUB_TUNNEL_PREFIX` | `10.66.0.` | Clients from this prefix (the WireGuard tunnel) are refused on the plain-HTTP port |
 
 Cameras are stored in `data/sources.json` (auto-seeded on first run). Credentials are
 **never** stored there — only `${NVR_USER}` / `${NVR_PASS}` placeholders, expanded at
@@ -98,42 +103,79 @@ ecosystem).
   on browsers that decode it. Audio is G.711 (PCMU/PCMA), which browsers can't play
   natively, so audio will need transcoding or dropping later (currently video-first).
 
-## Remote access (WireGuard relay)
+## Remote access (HTTPS through your own VPS)
 
-To watch cameras away from home without opening any router port, the hub and your
-phone both connect **out** to a small VPS you control, which relays traffic between
-them inside a WireGuard tunnel. The VPS only forwards encrypted packets; nothing at
-home is reachable from the internet.
+Away from home, the phone talks HTTPS to the hub through a small VPS you control.
+No router port is opened and the phone needs no VPN app.
 
 ```
-Phone ──WireGuard──► VPS (10.66.0.1) ◄──WireGuard── Hub (10.66.0.2) ──LAN──► NVR
+Phone ──HTTPS + device cert──► VPS :8443 ══ WireGuard (opened from home) ══► Hub :8443 ──LAN──► NVR
+                               (forwards bytes, can't decrypt)
 ```
 
-1. **VPS:** copy `scripts/wg-vps-setup.sh` over and run
-   `sudo bash wg-vps-setup.sh home:10.66.0.2:<home_pubkey> phone:10.66.0.3:<phone_pubkey>`.
-   It installs WireGuard, opens UDP 51820 in ufw (also open it in any cloud firewall),
-   and only allows forwarding between tunnel peers.
-2. **Hub:** install `wireguard-tools`, put the home config in `/etc/wireguard/wg0.conf`
-   (`Address = 10.66.0.2/32`, peer = VPS, `AllowedIPs = 10.66.0.0/24`,
-   `PersistentKeepalive = 25`) and `systemctl enable --now wg-quick@wg0`.
-3. **Phone:** WireGuard app, import the phone config by QR (`qrencode -t ansiutf8 < phone.conf`).
-   `AllowedIPs = 10.66.0.0/24` and no `DNS` line, so **only** hub traffic uses the
-   tunnel. Open `http://10.66.0.2:3000`.
+- **The hub dials out.** It keeps a WireGuard tunnel open to the VPS, so the VPS can
+  reach it without any inbound port at home. The VPS forwards TCP 8443 into that tunnel
+  with `systemd-socket-proxyd`. TLS runs end to end between phone and hub.
+- **The hub is its own certificate authority** (`data/pki/`, gitignored). It signs its
+  server certificate and one client certificate per paired phone. The app trusts only
+  this CA; no domain, Let's Encrypt or Cloudflare is involved.
+- **Only paired devices get in.** The HTTPS listener requires a client certificate from
+  that CA *and* checks the paired-device list on every connection and request.
+  Revoking a phone in the web UI cuts its open streams immediately.
+- **Pairing happens at home.** Web UI → **Devices** → **Pair a phone** shows a one-time
+  QR code (10 minutes, single use) with the hub's addresses and the CA fingerprint. The
+  app creates its key in the Android Keystore (hardware-backed, never leaves the phone),
+  sends only a certificate request, and checks the returned CA against the fingerprint.
+- **The plain-HTTP port stays home-only.** It has no authentication, so it refuses
+  clients coming through the tunnel; from outside, HTTPS with a paired device is the
+  only way in.
 
-Keep generated keys and configs in `data/wg/` (gitignored). Pick a VPS close to you:
-every request crosses it twice. This is the interim path; the planned end state is
-HTTPS with per-device client certificates, used by a native Android app, so the phone
-needs no VPN app.
+Setup:
+
+1. **VPS tunnel:** copy `scripts/wg-vps-setup.sh` to the VPS and run
+   `sudo bash wg-vps-setup.sh home:10.66.0.2:<home_pubkey>`. It installs WireGuard and
+   opens UDP 51820 in ufw (open it in any cloud firewall too).
+2. **Hub tunnel:** install `wireguard-tools`, put the home config in
+   `/etc/wireguard/wg0.conf` (`Address = 10.66.0.2/32`, peer = VPS,
+   `AllowedIPs = 10.66.0.0/24`, `PersistentKeepalive = 25`) and
+   `systemctl enable --now wg-quick@wg0`. Keep keys in `data/wg/` (gitignored).
+3. **VPS forward:** copy `scripts/vps-https-forward.sh` and run it with sudo. It forwards
+   TCP 8443 to `10.66.0.2:8443` and opens 8443 in ufw.
+4. **Hub:** set `HUB_PUBLIC_URL=https://<vps-ip>:8443` (and `HUB_LAN_URL` if needed) in
+   `.env.local`, then restart. The CA is created on first start (needs `openssl`;
+   `qrencode` draws the pairing QR).
+5. **Phone:** install the app, then pair from the web UI's Devices dialog.
+
+Pick a VPS close to you: every request crosses it twice.
+
+**Without the app (browser only):** you can put the phone itself in the tunnel with the
+WireGuard app (add it as a peer with `wg-vps-setup.sh`; use `AllowedIPs = 10.66.0.0/24`
+and no `DNS` line) and open `http://10.66.0.2:3000`. That skips client certificates,
+because the plain-HTTP port has no authentication, so the hub refuses tunnel clients by
+default. Set `HUB_TUNNEL_PREFIX=` (empty) in `.env.local` to allow it.
+
+## Android app
+
+`android/` is a native Kotlin app (Jetpack Compose, Media3/ExoPlayer). The phone's
+hardware decodes both H.264 and H.265. It shows the live grid, an HD viewer with
+fullscreen, NVR playback, and QR pairing; it uses the LAN address at home and HTTPS away.
+
+```bash
+cd android && ANDROID_HOME=~/Android/Sdk ./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Needs JDK 17+ and the Android SDK (command-line tools are enough).
 
 ## Roadmap
 
 - **M0 — Risk check** ✅ Proven: one NVR login, 5 cameras, browser-ready video via go2rtc.
 - **M1 — MVP web view** 🚧 Live grid, fullscreen, main/sub toggle, LAN access. *(this)*
 - **M2 — Daily use** PTZ, snapshots, authentication, settings, one-command install.
-- **M3 — Phone + remote** 🚧 WireGuard relay via own VPS ✅; next: HTTPS, login, per-device client certificates, QR pairing.
+- **M3 — Phone + remote** ✅ HTTPS through your own VPS, per-device client certificates, QR pairing, revocation. Next: web login for the LAN page, run as a service.
 - **M4 — Events** ONVIF motion events; local browser notifications.
 - **M5 — Recording/playback** Browse NVR recordings (DVRIP playback) + hub recording.
-- **M6 — Native Android app** Kotlin + Jetpack Compose + Media3/ExoPlayer (hardware H.265), client-certificate auth, QR pairing, push alerts. No WebView wrapper.
+- **M6 — Native Android app** 🚧 v0.2: live grid, viewer, playback, QR pairing, home/remote routing. Next: release signing, timeline, push alerts.
 
 Camera onboarding will become a 2–3 step flow (find → log in → confirm), with QR-code
 add and subnet-scan discovery (needed because UDP multicast discovery doesn't cross

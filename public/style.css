@@ -227,3 +227,26 @@ video-stream .mode, video-stream .status {
 
 /* Fullscreen button sits in the tab bar, clear of the absolutely-positioned ✕ */
 .fs-btn { margin-right: 2.4rem; font-size: 1rem; line-height: 1; }
+
+/* Devices / pairing dialog */
+.devices {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 14px;
+  width: min(92vw, 460px);
+  padding: 1.25rem;
+}
+.devices::backdrop { background: rgba(0, 0, 0, 0.7); }
+.devices h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+.muted { color: var(--muted); font-size: 0.85rem; }
+.device-list { list-style: none; padding: 0; margin: 0.75rem 0; display: grid; gap: 0.4rem; }
+.device-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.45rem 0.6rem; background: var(--surface-2); border-radius: 8px; font-size: 0.9rem;
+}
+.device-list li.revoked { opacity: 0.5; }
+.pair-box[hidden] { display: none; }
+.pair-qr { background: #fff; border-radius: 10px; padding: 0.5rem; width: fit-content; margin: 0.5rem auto; }
+.pair-qr svg { display: block; width: 260px; height: 260px; }
+.pair-qr code { color: #000; word-break: break-all; font-size: 0.75rem; }

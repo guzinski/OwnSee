@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Until the hub serves HTTPS, it is reached over plain HTTP on the LAN or
+     inside the WireGuard tunnel. Android can't scope cleartext to IP ranges
+     here, so it is allowed globally and the app itself refuses plain-HTTP
+     hub addresses that aren't private (see HubAddress.kt). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

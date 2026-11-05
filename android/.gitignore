@@ -1,0 +1,12 @@
+# local.properties holds the machine's SDK path
+local.properties
+.gradle/
+.kotlin/
+build/
+.idea/
+*.iml
+captures/
+*.apk
+*.aab
+*.jks
+*.keystore

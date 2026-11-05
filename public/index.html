@@ -18,6 +18,7 @@
         <span>HD (main stream)</span>
       </label>
       <span id="status" class="status" aria-live="polite"></span>
+      <button type="button" id="devices-btn" class="pb-btn">Devices</button>
     </div>
   </header>
   <main id="grid" class="grid" aria-busy="true"></main>
@@ -48,6 +49,21 @@
     </div>
   </dialog>
 
+  <dialog id="devices" class="devices">
+    <button class="close" id="devices-close" aria-label="Close">✕</button>
+    <h2>Paired phones</h2>
+    <p class="muted">Phones paired here can watch remotely through the hub's HTTPS address.
+      Pairing only works on this home network.</p>
+    <ul id="device-list" class="device-list"></ul>
+    <button type="button" id="pair-btn" class="pb-btn pb-play">Pair a phone</button>
+    <div id="pair-box" class="pair-box" hidden>
+      <p>In the OwnSee app, tap <b>Scan pairing code</b> and point it at this code.</p>
+      <div id="pair-qr" class="pair-qr"></div>
+      <p id="pair-info" class="muted"></p>
+    </div>
+  </dialog>
+
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/devices.js"></script>
 </body>
 </html>
