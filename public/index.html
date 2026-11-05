@@ -24,8 +24,28 @@
 
   <dialog id="viewer" class="viewer">
     <button class="close" id="close" aria-label="Close">✕</button>
+    <div class="viewer-tabs">
+      <button class="tab active" id="tab-live" data-mode="live">Live</button>
+      <button class="tab" id="tab-playback" data-mode="playback">Playback</button>
+      <span class="viewer-label" id="viewer-label"></span>
+      <button class="tab fs-btn" id="fullscreen" aria-label="Fullscreen" title="Fullscreen">⛶</button>
+    </div>
     <div id="viewer-mount" class="viewer-mount"></div>
-    <div class="viewer-label" id="viewer-label"></div>
+    <div id="playback-controls" class="playback-controls" hidden>
+      <div class="pb-row">
+        <button type="button" id="pb-prev" class="pb-btn" aria-label="Previous day">◀</button>
+        <input id="pb-date" class="pb-date" inputmode="numeric" maxlength="10"
+               placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" aria-label="Date (YYYY-MM-DD)" />
+        <button type="button" id="pb-next" class="pb-btn" aria-label="Next day">▶</button>
+      </div>
+      <div class="pb-row">
+        <select id="pb-hour" class="pb-select" aria-label="Hour"></select>
+        <span class="pb-colon">:</span>
+        <select id="pb-minute" class="pb-select" aria-label="Minute"></select>
+        <button type="button" id="pb-play" class="pb-btn pb-play">Play</button>
+        <span id="pb-status" class="status"></span>
+      </div>
+    </div>
   </dialog>
 
   <script type="module" src="/app.js"></script>

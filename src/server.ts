@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { HUB_HOST, HUB_PORT, GO2RTC_API, loadEnv } from "./config.ts";
 import { startGo2rtc, stopGo2rtc } from "./go2rtc.ts";
 import { loadSources } from "./sources.ts";
+import { handleRecordings, handlePlayback } from "./playback.ts";
 
 const PUBLIC = resolve(dirname(fileURLToPath(import.meta.url)), "../public");
 const [GO2RTC_HOST, GO2RTC_PORT] = GO2RTC_API.split(":");
@@ -80,6 +81,14 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true }));
       return;
     }
+    if (path === "/api/recordings") {
+      await handleRecordings(new URL(req.url!, "http://localhost"), res);
+      return;
+    }
+    if (path === "/api/playback") {
+      await handlePlayback(new URL(req.url!, "http://localhost"), res);
+      return;
+    }
     if (path.startsWith("/go2rtc/")) return proxyToGo2rtc(req, res);
     await serveStatic(req, res);
   } catch (err) {
@@ -113,13 +122,19 @@ loadEnv();
 if (!process.env.NVR_USER || !process.env.NVR_PASS)
   console.warn("[hub] NVR_USER/NVR_PASS not set in .env.local — streams will fail to authenticate");
 
-startGo2rtc();
+void startGo2rtc();
 server.listen(HUB_PORT, HUB_HOST, () => {
   console.log(`[hub] listening on http://${HUB_HOST}:${HUB_PORT}`);
 });
 
+// Shut down promptly: open browser connections (live WebSockets, playback
+// streams) would otherwise keep server.close() waiting forever, so the hub
+// never exited and go2rtc was left behind.
 for (const sig of ["SIGINT", "SIGTERM"] as const)
   process.on(sig, () => {
+    console.log(`[hub] ${sig} — shutting down`);
     stopGo2rtc();
     server.close(() => process.exit(0));
+    server.closeAllConnections();
+    setTimeout(() => process.exit(0), 1500).unref();
   });

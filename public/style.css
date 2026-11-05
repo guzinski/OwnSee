@@ -76,6 +76,17 @@ body {
 
 .tile video-stream,
 .viewer-mount video-stream { display: block; width: 100%; height: 100%; }
+/* go2rtc enables native video controls; on phones they swallow the tap, so
+   the tile never opened. Let taps fall through to the tile button instead. */
+.tile video-stream { pointer-events: none; }
+
+/* Fullscreen: let the video fill the screen instead of the 16:9 / 62dvh box. */
+.viewer-mount:fullscreen {
+  max-height: none;
+  aspect-ratio: auto;
+  width: 100%;
+  height: 100%;
+}
 .tile video,
 .viewer-mount video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 
@@ -105,18 +116,99 @@ video-stream .mode, video-stream .status {
   background: #000;
   color: var(--text);
   width: min(96vw, 1280px);
+  max-height: 94dvh;
   padding: 0;
   border-radius: 14px;
   overflow: hidden;
 }
+/* Column layout so the video shrinks to leave room for playback controls. */
+.viewer[open] { display: flex; flex-direction: column; }
 .viewer::backdrop { background: rgba(0, 0, 0, 0.8); }
-.viewer-mount { aspect-ratio: 16 / 9; background: #000; }
-.viewer-label {
-  padding: 0.5rem 0.75rem;
+.viewer-mount {
+  aspect-ratio: 16 / 9;
+  max-height: 62dvh; /* never push the controls off-screen */
+  flex: 0 1 auto;
+  min-height: 0;
+  background: #000;
+  position: relative;
+}
+.mount-msg {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: var(--muted);
   font-size: 0.9rem;
+  pointer-events: none;
+}
+.viewer-mount video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+.viewer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 0.3rem 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.tab.active { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.viewer-label {
+  margin-left: auto;
+  padding-right: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.playback-controls {
+  padding: 0.6rem 0.75rem;
   background: var(--surface);
   border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
+/* display:flex above would otherwise override the hidden attribute */
+.playback-controls[hidden] { display: none; }
+.pb-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.pb-date,
+.pb-select,
+.pb-btn {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.35rem 0.55rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.pb-date { width: 13ch; text-align: center; } /* 10 chars + padding; border-box counts padding */
+.pb-date:invalid { border-color: #d9534f; }
+.pb-select { min-width: 4.2rem; cursor: pointer; }
+.pb-colon { color: var(--muted); }
+.pb-btn { cursor: pointer; }
+.pb-btn:hover:not(:disabled) { border-color: var(--accent); }
+.pb-btn:disabled { opacity: 0.4; cursor: default; }
+.pb-play { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 600; }
 .close {
   position: absolute;
   top: 0.5rem;
@@ -132,3 +224,6 @@ video-stream .mode, video-stream .status {
   cursor: pointer;
 }
 .close:hover { background: rgba(0, 0, 0, 0.85); }
+
+/* Fullscreen button sits in the tab bar, clear of the absolutely-positioned ✕ */
+.fs-btn { margin-right: 2.4rem; font-size: 1rem; line-height: 1; }

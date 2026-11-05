@@ -98,15 +98,42 @@ ecosystem).
   on browsers that decode it. Audio is G.711 (PCMU/PCMA), which browsers can't play
   natively, so audio will need transcoding or dropping later (currently video-first).
 
+## Remote access (WireGuard relay)
+
+To watch cameras away from home without opening any router port, the hub and your
+phone both connect **out** to a small VPS you control, which relays traffic between
+them inside a WireGuard tunnel. The VPS only forwards encrypted packets; nothing at
+home is reachable from the internet.
+
+```
+Phone ──WireGuard──► VPS (10.66.0.1) ◄──WireGuard── Hub (10.66.0.2) ──LAN──► NVR
+```
+
+1. **VPS:** copy `scripts/wg-vps-setup.sh` over and run
+   `sudo bash wg-vps-setup.sh home:10.66.0.2:<home_pubkey> phone:10.66.0.3:<phone_pubkey>`.
+   It installs WireGuard, opens UDP 51820 in ufw (also open it in any cloud firewall),
+   and only allows forwarding between tunnel peers.
+2. **Hub:** install `wireguard-tools`, put the home config in `/etc/wireguard/wg0.conf`
+   (`Address = 10.66.0.2/32`, peer = VPS, `AllowedIPs = 10.66.0.0/24`,
+   `PersistentKeepalive = 25`) and `systemctl enable --now wg-quick@wg0`.
+3. **Phone:** WireGuard app, import the phone config by QR (`qrencode -t ansiutf8 < phone.conf`).
+   `AllowedIPs = 10.66.0.0/24` and no `DNS` line, so **only** hub traffic uses the
+   tunnel. Open `http://10.66.0.2:3000`.
+
+Keep generated keys and configs in `data/wg/` (gitignored). Pick a VPS close to you:
+every request crosses it twice. This is the interim path; the planned end state is
+HTTPS with per-device client certificates, used by a native Android app, so the phone
+needs no VPN app.
+
 ## Roadmap
 
 - **M0 — Risk check** ✅ Proven: one NVR login, 5 cameras, browser-ready video via go2rtc.
 - **M1 — MVP web view** 🚧 Live grid, fullscreen, main/sub toggle, LAN access. *(this)*
 - **M2 — Daily use** PTZ, snapshots, authentication, settings, one-command install.
-- **M3 — Phone + remote** Installable PWA over HTTPS; VPN (WireGuard/Tailscale) guide.
+- **M3 — Phone + remote** 🚧 WireGuard relay via own VPS ✅; next: HTTPS, login, per-device client certificates, QR pairing.
 - **M4 — Events** ONVIF motion events; local browser notifications.
 - **M5 — Recording/playback** Browse NVR recordings (DVRIP playback) + hub recording.
-- **M6 — Native app** (optional) Capacitor/Flutter wrapper, background alerts.
+- **M6 — Native Android app** Kotlin + Jetpack Compose + Media3/ExoPlayer (hardware H.265), client-certificate auth, QR pairing, push alerts. No WebView wrapper.
 
 Camera onboarding will become a 2–3 step flow (find → log in → confirm), with QR-code
 add and subnet-scan discovery (needed because UDP multicast discovery doesn't cross
