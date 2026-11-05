@@ -1,0 +1,19 @@
+{
+  "name": "onvif-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted ONVIF/NVR viewer — local-first, no third-party cloud",
+  "license": "MIT",
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e13" />
+  <title>Camera Hub</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Camera Hub</h1>
+    <div class="actions">
+      <label class="toggle">
+        <input type="checkbox" id="quality" />
+        <span>HD (main stream)</span>
+      </label>
+      <span id="status" class="status" aria-live="polite"></span>
+    </div>
+  </header>
+  <main id="grid" class="grid" aria-busy="true"></main>
+
+  <dialog id="viewer" class="viewer">
+    <button class="close" id="close" aria-label="Close">✕</button>
+    <div id="viewer-mount" class="viewer-mount"></div>
+    <div class="viewer-label" id="viewer-label"></div>
+  </dialog>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
