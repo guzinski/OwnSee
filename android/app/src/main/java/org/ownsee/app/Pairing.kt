@@ -79,7 +79,8 @@ object Pairing {
 
         HubAddress.savePairing(
             ctx,
-            lan = code.lan,
+            // At home the phone uses its certificate too, on the hub's HTTPS port.
+            lan = res.optString("lanSecure").ifEmpty { null } ?: HubAddress.secureLan(code.lan),
             remote = res.optString("remote").ifEmpty { null } ?: code.remote,
             caPem = res.getString("ca"),
         )

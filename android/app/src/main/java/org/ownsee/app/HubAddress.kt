@@ -12,10 +12,12 @@ enum class Route { Home, Remote }
 /**
  * Where the hub lives, persisted across launches.
  *
- * After pairing there are two addresses: the plain-HTTP LAN address (used at
- * home) and the HTTPS remote address through the VPS (used everywhere else,
- * authenticated by this phone's certificate). Before pairing, a manually
- * entered address can be used on the home network.
+ * After pairing there are two addresses, both HTTPS and authenticated by this
+ * phone's certificate: the hub's LAN address (used at home) and the remote
+ * address through the VPS (used everywhere else). The plain-HTTP listener
+ * needs the hub password, so the app never uses it after pairing. Before
+ * pairing, a manually entered address can be tried, but the hub will refuse
+ * it until the phone is paired.
  */
 object HubAddress {
     private const val PREFS = "ownsee"
@@ -23,13 +25,24 @@ object HubAddress {
     private const val KEY_LAN = "lan_url"
     private const val KEY_REMOTE = "remote_url"
     private const val KEY_CA = "ca_pem"
+    private const val TLS_PORT = 8443 // HUB_TLS_PORT default; pairing sends the real one
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun isConfigured(ctx: Context) = lan(ctx) != null || remote(ctx) != null
     fun isPaired(ctx: Context) = caPem(ctx) != null
 
-    fun lan(ctx: Context): String? = prefs(ctx).getString(KEY_LAN, null) ?: prefs(ctx).getString(KEY_URL, null)
+    fun lan(ctx: Context): String? {
+        val saved = prefs(ctx).getString(KEY_LAN, null) ?: return prefs(ctx).getString(KEY_URL, null)
+        // Paired before the hub had a password: switch to its HTTPS port.
+        return if (saved.startsWith("http://")) secureLan(saved) else saved
+    }
+
+    /** http://host:3000 -> https://host:8443, the hub's paired-device port. */
+    fun secureLan(url: String): String {
+        val host = URI(url).host ?: return url
+        return "https://$host:$TLS_PORT"
+    }
     fun remote(ctx: Context): String? = prefs(ctx).getString(KEY_REMOTE, null)
     fun caPem(ctx: Context): String? = prefs(ctx).getString(KEY_CA, null)
 
@@ -58,7 +71,7 @@ object HubAddress {
         if (lan != null) {
             try {
                 ping(lan, 1_500)
-                return HubClient(lan) to Route.Home
+                return HubClient(lan, ctx.getString(R.string.not_paired)) to Route.Home
             } catch (e: Exception) {
                 lastError = e
             }
@@ -66,7 +79,7 @@ object HubAddress {
         if (remote != null) {
             try {
                 ping(remote, 10_000)
-                return HubClient(remote) to Route.Remote
+                return HubClient(remote, ctx.getString(R.string.not_paired)) to Route.Remote
             } catch (e: Exception) {
                 lastError = e
             }

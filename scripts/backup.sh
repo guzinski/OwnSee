@@ -22,6 +22,7 @@ copy() { [[ -e $1 ]] && cp -a "$1" "$2" && echo "  + $3" || echo "  - $3 (not fo
 echo "Collecting:"
 copy "$REPO/.env.local"          "$STAGE/hub/"       ".env.local            NVR login, hub URLs"
 copy "$REPO/data/sources.json"   "$STAGE/hub/data/"  "data/sources.json     camera list"
+copy "$REPO/data/auth.json"      "$STAGE/hub/data/"  "data/auth.json        admin password hash + browser logins"
 copy "$REPO/data/pki"            "$STAGE/hub/data/"  "data/pki/             hub CA + paired phones"
 copy "$REPO/data/wg"             "$STAGE/hub/data/"  "data/wg/              WireGuard keys + configs"
 copy "$HOME/.ownsee"             "$STAGE/home/"      "~/.ownsee/            Android release signing key"

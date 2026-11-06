@@ -24,6 +24,14 @@ export interface Recording {
   size?: number;
 }
 
+/** One video frame from a recording: Annex-B data, whether it is a keyframe,
+ *  and for keyframes the camera clock time (Unix seconds, 1 s resolution). */
+export interface Frame {
+  data: Buffer;
+  key: boolean;
+  stamp?: number;
+}
+
 function sofiaHash(password: string): string {
   const md5 = crypto.createHash("md5").update(password, "utf8").digest();
   let out = "";
@@ -171,8 +179,9 @@ export class DvripClient {
     return [...byName.values()].sort((a, b) => a.begin.localeCompare(b.begin));
   }
 
-  /** Start playback of a recording by name; returns a stream of clean
-   *  Annex-B video (audio dropped). Close the client to stop. */
+  /** Start playback of a recording by name; returns an object-mode stream of
+   *  video Frames (audio dropped) that ends with the file. Close the client
+   *  to stop early. */
   openPlayback(rec: Recording): Readable & { frameRate(): number | undefined } {
     const param = {
       PlayMode: "ByName",
@@ -182,11 +191,20 @@ export class DvripClient {
       TransMode: "TCP",
     };
     const deframer = new Deframer();
-    const out = Object.assign(new Readable({ read() {} }), {
+    const out = Object.assign(new Readable({ objectMode: true, read() {} }), {
       frameRate: () => frameRate(deframer.fps),
     });
+    let ended = false;
     this.onData = (payload) => {
-      for (const v of deframer.push(payload)) out.push(v);
+      if (ended) return;
+      // An empty data packet marks the end of the file. The NVR keeps the
+      // connection open afterwards, so without this a download never ends.
+      if (payload.length === 0) {
+        ended = true;
+        out.push(null);
+        return;
+      }
+      for (const f of deframer.push(payload)) out.push(f);
     };
 
     (async () => {
@@ -212,7 +230,10 @@ export class DvripClient {
       }
     })();
 
-    this.sock!.once("close", () => out.push(null));
+    this.sock!.once("close", () => {
+      if (!ended) out.push(null);
+      ended = true;
+    });
     return out;
   }
 
@@ -231,7 +252,15 @@ export function frameRate(header: number | undefined): number | undefined {
   return rates.reduce((a, b) => (Math.abs(b - header) < Math.abs(a - header) ? b : a));
 }
 
-/** Streaming Xiongmai de-framer: emits H.264/H.265 Annex-B video payloads,
+/** Xiongmai packed date-time (I-frame header bytes 8-11) as Unix seconds of
+ *  the camera's wall clock: sec 6 bits, min 6, hour 5, day 5, month 4, year 6. */
+function clockTime(v: number): number {
+  const sec = v & 0x3f, min = (v >>> 6) & 0x3f, hour = (v >>> 12) & 0x1f;
+  const day = (v >>> 17) & 0x1f, month = (v >>> 22) & 0x0f, year = 2000 + ((v >>> 26) & 0x3f);
+  return Date.UTC(year, month - 1, day, hour, min, sec) / 1000;
+}
+
+/** Streaming Xiongmai de-framer: emits H.264/H.265 Annex-B video frames,
  *  dropping audio and the proprietary frame headers, across TCP chunks. */
 class Deframer {
   private buf = Buffer.alloc(0);
@@ -239,9 +268,9 @@ class Deframer {
    *  (a 15 fps camera reports 15 or 16), so use frameRate() for the real one. */
   fps: number | undefined;
 
-  push(chunk: Buffer): Buffer[] {
+  push(chunk: Buffer): Frame[] {
     this.buf = Buffer.concat([this.buf, chunk]);
-    const out: Buffer[] = [];
+    const out: Frame[] = [];
     let p = 0;
     while (p + 8 <= this.buf.length) {
       if (!(this.buf[p] === 0 && this.buf[p + 1] === 0 && this.buf[p + 2] === 1 && this.buf[p + 3] >= 0xf0)) {
@@ -249,10 +278,11 @@ class Deframer {
         continue;
       }
       const tag = this.buf[p + 3];
-      let hdr: number, len: number, video = false;
+      let hdr: number, len: number, video = false, stamp: number | undefined;
       if (tag === 0xfc || tag === 0xfe) {
         if (p + 16 > this.buf.length) break;
         if (tag === 0xfc && this.fps === undefined && this.buf[p + 5] > 0) this.fps = this.buf[p + 5];
+        if (tag === 0xfc) stamp = clockTime(this.buf.readUInt32LE(p + 8));
         hdr = 16;
         len = this.buf.readUInt32LE(p + 12);
         video = true;
@@ -268,7 +298,8 @@ class Deframer {
         continue;
       }
       if (p + hdr + len > this.buf.length) break; // wait for more data
-      if (video) out.push(Buffer.from(this.buf.subarray(p + hdr, p + hdr + len)));
+      if (video)
+        out.push({ data: Buffer.from(this.buf.subarray(p + hdr, p + hdr + len)), key: tag === 0xfc, stamp });
       p += hdr + len;
     }
     this.buf = Buffer.from(this.buf.subarray(p));

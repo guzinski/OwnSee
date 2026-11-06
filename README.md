@@ -141,9 +141,12 @@ Phone ──HTTPS + device cert──► VPS :8443 ══ WireGuard (opened from
   QR code (10 minutes, single use) with the hub's addresses and the CA fingerprint. The
   app creates its key in the Android Keystore (hardware-backed, never leaves the phone),
   sends only a certificate request, and checks the returned CA against the fingerprint.
-- **The plain-HTTP port stays home-only.** It has no authentication, so it refuses
-  clients coming through the tunnel; from outside, HTTPS with a paired device is the
-  only way in.
+- **The plain-HTTP port stays home-only and needs a password.** Set it once with
+  `bash scripts/set-password.sh`; the web page then asks for it, and pairing needs it,
+  so a guest on your Wi-Fi can't watch or pair a phone. It also refuses clients coming
+  through the tunnel; from outside, HTTPS with a paired device is the only way in.
+  Paired phones use their certificate at home too (HTTPS on the LAN, port 8443), so
+  they never need the password. Guests are best kept on the router's guest Wi-Fi anyway.
 
 Setup:
 
@@ -165,9 +168,8 @@ Pick a VPS close to you: every request crosses it twice.
 
 **Without the app (browser only):** you can put the phone itself in the tunnel with the
 WireGuard app (add it as a peer with `wg-vps-setup.sh`; use `AllowedIPs = 10.66.0.0/24`
-and no `DNS` line) and open `http://10.66.0.2:3000`. That skips client certificates,
-because the plain-HTTP port has no authentication, so the hub refuses tunnel clients by
-default. Set `HUB_TUNNEL_PREFIX=` (empty) in `.env.local` to allow it.
+and no `DNS` line) and open `http://10.66.0.2:3000`. That skips client certificates
+and relies on the hub password alone, so the hub refuses tunnel clients by default. Set `HUB_TUNNEL_PREFIX=` (empty) in `.env.local` to allow it.
 
 ## Android app
 

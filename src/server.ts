@@ -12,6 +12,7 @@ import { loadSources } from "./sources.ts";
 import { handleRecordings, handlePlayback } from "./playback.ts";
 import { handlePairing } from "./pairing.ts";
 import { handleAppDist } from "./appdist.ts";
+import { handleAuth, isLoggedIn, isOpenPath } from "./auth.ts";
 import { ensurePki } from "./pki.ts";
 import { createTlsServer, isPairedRequest } from "./tls-server.ts";
 
@@ -76,7 +77,12 @@ async function serveStatic(req: http.IncomingMessage, res: http.ServerResponse) 
     res.end("Not found");
     return;
   }
-  res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream" });
+  // no-cache: browsers may keep a copy but must check for a newer one each
+  // time, so page updates show up on a normal reload.
+  res.writeHead(200, {
+    "content-type": MIME[extname(file)] ?? "application/octet-stream",
+    "cache-control": "no-cache",
+  });
   res.end(await readFile(file));
 }
 
@@ -91,6 +97,16 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse, secur
   }
   try {
     const path = (req.url ?? "/").split("?")[0];
+    // Home network: the API and video need a login (the page itself is just
+    // static files; it sends you to /login.html when the API says 401).
+    if (!secure) {
+      if (await handleAuth(req, res, path)) return;
+      if ((path.startsWith("/api/") || path.startsWith("/go2rtc/")) && !isOpenPath(path) && !isLoggedIn(req)) {
+        res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
+        res.end(JSON.stringify({ error: "login" }));
+        return;
+      }
+    }
     if (path === "/api/sources") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(sourcesView()));
@@ -144,8 +160,8 @@ function handleUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buff
 }
 
 /**
- * The plain-HTTP listener has no authentication, so it must only serve the
- * home network. Clients arriving through the WireGuard tunnel (the VPS, old
+ * The plain-HTTP listener is protected only by the admin password (auth.ts),
+ * so it must only serve the home network. Clients arriving through the WireGuard tunnel (the VPS, old
  * phone peers) are refused; from outside, the only way in is the HTTPS
  * listener with a paired client certificate.
  */
@@ -165,7 +181,7 @@ const server = http.createServer((req, res) => {
   handle(req, res, false);
 });
 server.on("upgrade", (req, socket, head) => {
-  if (fromTunnel(socket as net.Socket)) return socket.destroy();
+  if (fromTunnel(socket as net.Socket) || !isLoggedIn(req)) return socket.destroy();
   handleUpgrade(req, socket as net.Socket, head);
 });
 

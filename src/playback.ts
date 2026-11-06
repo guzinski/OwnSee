@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import type http from "node:http";
-import { DvripClient, codecString, detectCodec, type Recording } from "./dvrip.ts";
+import { DvripClient, codecString, detectCodec, type Frame, type Recording } from "./dvrip.ts";
+import { Retimer, TsWriter } from "./mpegts.ts";
 import { loadSources } from "./sources.ts";
 
 function creds(): { user: string; pass: string } {
@@ -72,8 +73,7 @@ function downloadName(camera: string, begin: string): string {
 
 /** GET /api/playback?camera=cam0&file=<name>&begin=<t>&end=<t>[&download=1]
  *  Streams the recording as fragmented MP4 (video only, for now). With
- *  download=1 it is sent as a file attachment. The NVR sends recordings at
- *  about real-time speed, so a 5-minute segment takes about 5 minutes. */
+ *  download=1 it is sent as a file attachment. */
 export async function handlePlayback(
   url: URL,
   res: http.ServerResponse,
@@ -107,61 +107,78 @@ export async function handlePlayback(
     await client.connect();
     const video = client.openPlayback(rec);
 
-    // Sniff the codec from the first chunk, then spawn ffmpeg to remux to fMP4.
-    let started = false;
-    video.on("data", (chunk: Buffer) => {
-      if (started) return;
-      started = true;
-      // The client may have gone away while the NVR was starting up; don't
-      // spawn an ffmpeg nobody will ever stop.
-      if (closed) return;
-      const fmt = detectCodec(chunk) === "hevc" ? "hevc" : "h264";
-      const b = parseLocal(begin), e = parseLocal(end);
-      const duration = b && e ? Math.max(1, (e.getTime() - b.getTime()) / 1000) : 300;
-      // Raw frames carry no timestamps, so ffmpeg needs the real frame rate.
-      // Cameras differ (some 15, some 20 fps); a wrong rate plays the clip too
-      // fast, and the player then stalls waiting for the real-time NVR.
-      const fps = video.frameRate() ?? 20;
-      ffmpeg = spawn("ffmpeg", [
-        "-hide_banner", "-loglevel", "error",
-        "-fflags", "+genpts", "-r", String(fps),
-        "-f", fmt, "-i", "pipe:0",
-        "-c", "copy",
-        "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof",
-        // Flush fragments incrementally so the browser can play/seek while the
-        // segment is still downloading (otherwise ffmpeg buffers until EOF).
-        "-frag_duration", "500000", "-flush_packets", "1",
-        "pipe:1",
-      ]);
-      res.writeHead(200, {
-        "content-type": "video/mp4",
-        "cache-control": "no-store",
-        // The browser feeds this into MediaSource, which needs the exact codec
-        // and the segment length up front (the stream itself has no duration).
-        "x-codec": codecString(chunk, fmt),
-        "x-duration": String(duration),
-        ...(download && {
-          "content-disposition": `attachment; filename="${downloadName(target.name, begin)}"`,
-        }),
-      });
-      ffmpeg.stdout!.pipe(res);
-      ffmpeg.stderr!.on("data", (d) => console.error("[ffmpeg]", d.toString().trim()));
-      ffmpeg.on("error", (e) => res.destroyed || res.destroy(e));
-      // When the client disconnects, cleanup() kills ffmpeg while NVR data is
-      // still being piped in. The resulting EPIPE must be handled, or it is an
-      // uncaught error that takes the whole hub down.
-      ffmpeg.stdin!.on("error", () => {});
-      ffmpeg.stdout!.on("error", () => {});
-      // Re-pump: write this first chunk, then pipe the rest.
-      ffmpeg.stdin!.write(chunk);
-      video.pipe(ffmpeg.stdin!);
+    // Frames are placed on the camera's clock (Retimer) and handed to ffmpeg
+    // as MPEG-TS with a timestamp each, which it remuxes to fragmented MP4.
+    // ffmpeg starts on the first keyframe, once the codec is known.
+    let retimer: Retimer | null = null;
+    let ts: TsWriter | null = null;
+    const write = (b: Buffer) => {
+      if (ffmpeg?.stdin && !ffmpeg.stdin.write(b)) {
+        video.pause();
+        ffmpeg.stdin.once("drain", () => video.resume());
+      }
+    };
+    video.on("data", (frame: Frame) => {
+      if (!retimer) {
+        if (!frame.key) return;
+        // The client may have gone away while the NVR was starting up; don't
+        // spawn an ffmpeg nobody will ever stop.
+        if (closed) return;
+        const fmt = detectCodec(frame.data) === "hevc" ? "hevc" : "h264";
+        const b = parseLocal(begin), e = parseLocal(end);
+        const duration = b && e ? Math.max(1, (e.getTime() - b.getTime()) / 1000) : 300;
+        retimer = new Retimer(video.frameRate() ?? 20);
+        ts = new TsWriter(fmt);
+        ffmpeg = spawn("ffmpeg", [
+          "-hide_banner", "-loglevel", "error",
+          // Gaps in the timeline are real (lost frames). Without this, ffmpeg
+          // treats any jump over 10 s as a glitch and closes it up.
+          "-dts_delta_threshold", "86400",
+          "-f", "mpegts", "-i", "pipe:0",
+          "-c", "copy",
+          "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+          // Flush fragments incrementally so the browser can play/seek while the
+          // segment is still downloading (otherwise ffmpeg buffers until EOF).
+          "-frag_duration", "500000", "-flush_packets", "1",
+          "pipe:1",
+        ]);
+        res.writeHead(200, {
+          "content-type": "video/mp4",
+          "cache-control": "no-store",
+          // The browser feeds this into MediaSource, which needs the exact codec
+          // and the segment length up front (the stream itself has no duration).
+          "x-codec": codecString(frame.data, fmt),
+          "x-duration": String(duration),
+          ...(download && {
+            "content-disposition": `attachment; filename="${downloadName(target.name, begin)}"`,
+          }),
+        });
+        ffmpeg.stdout!.pipe(res);
+        ffmpeg.stderr!.on("data", (d) => console.error("[ffmpeg]", d.toString().trim()));
+        ffmpeg.on("error", (e) => res.destroyed || res.destroy(e));
+        // When the client disconnects, cleanup() kills ffmpeg while NVR data is
+        // still being written. The resulting EPIPE must be handled, or it is an
+        // uncaught error that takes the whole hub down.
+        ffmpeg.stdin!.on("error", () => {});
+        ffmpeg.stdout!.on("error", () => {});
+        write(ts.tables());
+      }
+      for (const f of retimer.push(frame)) write(ts!.frame(f));
     });
     video.on("error", (e) => {
       console.error("[playback]", e.message);
       if (!res.headersSent) res.writeHead(502);
       res.end();
     });
-    video.on("end", () => ffmpeg?.stdin?.end());
+    video.on("end", () => {
+      if (!ffmpeg?.stdin) {
+        if (!res.headersSent) res.writeHead(502, { "content-type": "text/plain" });
+        res.end("no video in this recording");
+        return;
+      }
+      for (const f of retimer?.flush() ?? []) write(ts!.frame(f));
+      ffmpeg.stdin.end();
+    });
   } catch (err) {
     cleanup();
     if (!res.headersSent) res.writeHead(502, { "content-type": "text/plain" });

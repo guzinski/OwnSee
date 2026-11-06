@@ -56,6 +56,15 @@ function addresses(lanFromBrowser: unknown): { lan: string | null; remote: strin
   return { lan: homeAddress(lanFromBrowser), remote: remote?.replace(/\/+$/, "") ?? null };
 }
 
+/** The HTTPS address of the hub on the home network, for paired phones: the
+ *  host the phone just reached (its LAN address) on the TLS port. At home the
+ *  phone uses its certificate too; the plain-HTTP listener needs a password. */
+function secureHome(req: http.IncomingMessage): string | null {
+  const host = (req.headers.host ?? "").replace(/:\d+$/, "");
+  if (!host || process.env.HUB_TLS === "0") return null;
+  return `https://${host}:${process.env.HUB_TLS_PORT ?? 8443}`;
+}
+
 /** QR code as SVG via the qrencode CLI, or null if it isn't installed. */
 export function qrSvg(text: string): string | null {
   try {
@@ -89,7 +98,7 @@ export async function handlePairing(req: http.IncomingMessage, res: http.ServerR
       const body = await readJson(req);
       const { cert, ca, device } = claimPairing(String(body.token ?? ""), String(body.name ?? ""), String(body.csr ?? ""));
       const { remote } = addresses(null);
-      json(res, 200, { cert, ca, deviceId: device.id, remote });
+      json(res, 200, { cert, ca, deviceId: device.id, remote, lanSecure: secureHome(req) });
       return true;
     }
 

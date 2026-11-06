@@ -101,7 +101,7 @@ fun SetupScreen(
         busy = ctx.getString(R.string.connecting)
         manualError = null
         scope.launch {
-            val result = runCatching { withContext(Dispatchers.IO) { HubClient(url).cameras() } }
+            val result = runCatching { withContext(Dispatchers.IO) { HubClient(url, ctx.getString(R.string.not_paired)).cameras() } }
             busy = null
             result.fold(
                 onSuccess = { cams ->

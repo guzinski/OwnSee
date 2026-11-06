@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#eef1ea" />
+  <title>OwnSee</title>
+  <link rel="icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="login-page">
+  <main class="login">
+    <img src="/icon.svg" alt="" width="56" height="56" />
+    <h1 data-i18n="loginTitle"></h1>
+    <form id="login-form">
+      <label for="password" class="muted" data-i18n="password"></label>
+      <input id="password" type="password" autocomplete="current-password" required autofocus />
+      <button type="submit" class="pill-btn login-btn" data-i18n="logIn"></button>
+      <p id="login-msg" class="muted login-msg" aria-live="polite"></p>
+    </form>
+  </main>
+  <script type="module" src="/login.js"></script>
+</body>
+</html>

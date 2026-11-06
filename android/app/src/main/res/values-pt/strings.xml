@@ -68,6 +68,7 @@
     <string name="pair_code_expired">o código expirou ou já foi usado. Crie um novo no hub.</string>
     <string name="hub_no_cameras">Conectado, mas o hub não tem câmeras.</string>
     <string name="cant_reach_hub">Não foi possível acessar o hub: %s</string>
+    <string name="not_paired">Este celular não está pareado com o hub. Na página do hub, abra Celulares e depois Parear um celular.</string>
     <string name="hub_unreachable_home">Hub inacessível na rede de casa (%s)</string>
     <string name="hub_unreachable_both">Hub inacessível em casa e fora de casa (%s)</string>
     <string name="addr_empty">Digite o endereço do hub</string>

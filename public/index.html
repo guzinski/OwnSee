@@ -29,6 +29,10 @@
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path id="pause-icon" d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
           </button>
           <span id="stage-title" class="stage-title"></span>
+          <div id="seek-box" class="seek" hidden>
+            <input type="range" id="seek" min="0" max="300" step="0.1" value="0" data-i18n-label="position">
+            <span id="seek-time" class="seek-time">0:00 / 5:00</span>
+          </div>
           <button type="button" id="save-photo" class="round" data-i18n-label="savePhoto" title="">
             <svg viewBox="0 0 24 24" class="line" aria-hidden="true"><path d="M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/><path d="M15.5 13.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z"/><path d="M8 7l2-3h4l2 3"/></svg>
           </button>
@@ -76,6 +80,8 @@
       <div id="pair-qr" class="pair-qr"></div>
       <p id="pair-info" class="muted"></p>
     </div>
+
+    <button type="button" id="logout-btn" class="pb-btn logout-btn" data-i18n="logOut"></button>
   </dialog>
 
   <script type="module" src="/app.js"></script>

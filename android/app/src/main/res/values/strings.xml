@@ -69,6 +69,7 @@
     <string name="pair_code_expired">the code expired or was already used. Create a new one on the hub.</string>
     <string name="hub_no_cameras">Connected, but the hub has no cameras.</string>
     <string name="cant_reach_hub">Can\'t reach the hub: %s</string>
+    <string name="not_paired">This phone isn\'t paired with the hub. On the hub\'s web page, open Phones, then Pair a phone.</string>
     <string name="hub_unreachable_home">Hub not reachable on the home network (%s)</string>
     <string name="hub_unreachable_both">Hub not reachable at home or remotely (%s)</string>
     <string name="addr_empty">Enter the hub address</string>

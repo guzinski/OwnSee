@@ -34,7 +34,12 @@ data class Segment(val fileName: String, val begin: String, val end: String, val
  * thread. The same endpoints serve the web UI, so this is the app's contract
  * with the hub.
  */
-class HubClient(val baseUrl: String) {
+class HubClient(
+    val baseUrl: String,
+    /** Shown when the hub answers 401: on the home network it needs a login,
+     *  which the app doesn't do; it uses its certificate instead. */
+    private val notPaired: String = "HTTP 401",
+) {
 
     fun cameras(): List<CameraInfo> {
         val sources = JSONArray(get("/api/sources"))
@@ -95,6 +100,7 @@ class HubClient(val baseUrl: String) {
             val code = conn.responseCode
             val body = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code == 401) throw IOException(notPaired)
             if (code !in 200..299) throw IOException("HTTP $code ${body.take(200)}".trim())
             return body
         } finally {

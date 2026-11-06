@@ -13,6 +13,7 @@ backup must cover.
 | --- | --- | --- |
 | **Android release signing key** | `~/.ownsee/release.jks`, `~/.ownsee/signing.properties` | **Can't be recreated.** Updates can no longer install over the existing app; every phone must uninstall, reinstall and re-pair. |
 | Hub certificate authority + paired phones | `data/pki/` | Every phone must re-pair. |
+| Admin password (hash) + browser logins | `data/auth.json` | Set a new one with `scripts/set-password.sh`; browsers log in again. |
 | WireGuard keys and configs | `data/wg/`, copy in `/etc/wireguard/wg0.conf` | Make new keys and re-run the VPS setup. |
 | NVR login, hub addresses | `.env.local` | Re-enter by hand. |
 | Camera list | `data/sources.json` | Re-seeded with defaults; re-edit names. |
@@ -87,6 +88,9 @@ paired phones need no changes.
    ```bash
    sudo bash scripts/install-service.sh "$(command -v node)"
    ```
+   Restored from a backup, the admin password is the old one. Without one
+   (fresh install), set it now: `bash scripts/set-password.sh`. Until then the
+   web page only works on the hub machine itself (localhost).
 
 8. **Verify**
    - `curl -s http://127.0.0.1:3000/api/health` returns `{"ok":true,...}`
@@ -146,15 +150,18 @@ Same as above, but instead of step 3:
 | Restart after a code change or `.env.local` edit | `sudo systemctl restart ownsee-hub` |
 | Update the hub | `git pull && sudo systemctl restart ownsee-hub` |
 | Release a new app version | bump `versionCode`/`versionName` in `android/app/build.gradle.kts`, then `bash scripts/publish-apk.sh` |
-| Pair / revoke a phone | web UI → Phones (home network only) |
+| Pair / revoke a phone | web UI → Phones (home network only, after logging in) |
+| Change the admin password | `bash scripts/set-password.sh` (logs out every browser; no restart) |
+| Forgot the admin password | the same command on the hub machine; it needs no old password |
 | Tunnel status | `sudo wg show` (latest handshake under 2 minutes = up) |
 
 ## Windows/WSL hosts
 
 - Hub and tunnel run as systemd services inside WSL, as above.
 - `scripts/windows-autostart.ps1` (run once, elevated) registers the "OwnSee
-  hub" task. At each login it starts WSL, points the phone port forward at
-  WSL's current IP, and keeps WSL alive. Log: `C:\ProgramData\OwnSee\boot.log`.
+  hub" task. At each login it starts WSL, points the port forwards (3000 for
+  the web page, 8443 for paired phones at home) at WSL's current IP, and keeps
+  WSL alive. Re-run it after updating it, so the task picks up new ports. Log: `C:\ProgramData\OwnSee\boot.log`.
 - It starts at **login**, not boot. Set Windows sleep to "Never" while plugged in.
 - Remove: `Unregister-ScheduledTask -TaskName "OwnSee hub" -Confirm:$false`.
 

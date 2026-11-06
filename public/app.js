@@ -2,8 +2,17 @@
 // builds the page from /api/sources: one selected camera in HD on the stage,
 // the others live below on their sub streams, and that camera's recordings
 // picked by day and hour. No build step, no external deps.
-import "/go2rtc/video-stream.js";
 import { longDay, numericDate, shortDay, t } from "/i18n.js";
+
+// The home-network page needs the hub password (paired phones don't). Check
+// before loading the player: it comes through /go2rtc/, which needs a login,
+// and a failed static import would stop this whole script.
+const auth = await fetch("/api/auth").then((r) => (r.ok ? r.json() : { loggedIn: true })).catch(() => ({ loggedIn: true }));
+if (!auth.loggedIn) {
+  location.replace("/login.html");
+  await new Promise(() => {}); // stop here while the browser navigates
+}
+await import("/go2rtc/video-stream.js");
 
 const PLAYER_MODE = "mse,webrtc,mjpeg"; // MSE first so H.265 channels play
 const DAYS_BACK = 60;
@@ -14,6 +23,9 @@ const statusEl = $("status");
 const stage = $("stage");
 const mount = $("stage-mount");
 const stageTitle = $("stage-title");
+const seekBox = $("seek-box");
+const seek = $("seek");
+const seekTime = $("seek-time");
 const livePill = $("live-pill");
 const backLive = $("back-live");
 const pauseBtn = $("pause");
@@ -83,6 +95,8 @@ function showLive() {
   mount.append(player);
   if (player.video) player.video.controls = false; // the stage has its own
   stageTitle.textContent = currentCam.name;
+  stageTitle.hidden = false;
+  seekBox.hidden = true;
   livePill.hidden = false;
   backLive.hidden = true;
   pauseBtn.hidden = true;
@@ -237,7 +251,10 @@ function playIndex(i) {
   pauseBtn.hidden = false;
   saveBtn.hidden = true;
   downloadBtn.hidden = false;
-  stageTitle.textContent = t("dayAtTime", { day: dayLabel(), time: rec.begin.slice(11, 16) });
+  // The selected hour/block and the camera's own clock show the time; the
+  // bar shows the seek bar instead of a title.
+  stageTitle.hidden = true;
+  seekBox.hidden = false;
   setPauseIcon(false);
   renderHours();
   renderBlocks();
@@ -251,6 +268,7 @@ function playIndex(i) {
   msg.className = "mount-msg";
   msg.textContent = t("loadingRecording");
   mount.append(video, msg);
+  attachSeek(video);
   video.addEventListener("playing", () => {
     msg.remove();
     setPauseIcon(false);
@@ -269,6 +287,44 @@ function playIndex(i) {
   const q = new URLSearchParams({ camera: currentCam.id, file: rec.fileName, begin: rec.begin, end: rec.end });
   streamIntoVideo(video, `/api/playback?${q}`, msg);
 }
+
+// Seek bar for recordings. The NVR streams the 5-minute file from its start,
+// so you can jump anywhere that has already arrived (the lighter part of the
+// track); a jump past that goes as far as has arrived.
+const clock = (s) => `${Math.floor(s / 60)}:${pad2(Math.floor(s % 60))}`;
+let seeking = false;
+
+function attachSeek(video) {
+  seek.value = "0";
+  const total = () => (Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 300);
+  const paint = () => {
+    const max = total();
+    seek.max = String(max);
+    if (!seeking) seek.value = String(video.currentTime);
+    const b = video.buffered;
+    const loaded = b.length ? b.end(b.length - 1) : 0;
+    seek.style.setProperty("--played", `${(video.currentTime / max) * 100}%`);
+    seek.style.setProperty("--loaded", `${(loaded / max) * 100}%`);
+    seekTime.textContent = `${clock(seeking ? Number(seek.value) : video.currentTime)} / ${clock(max)}`;
+  };
+  for (const ev of ["timeupdate", "progress", "durationchange", "loadedmetadata"]) video.addEventListener(ev, paint);
+  paint();
+}
+
+seek.addEventListener("input", () => {
+  seeking = true;
+  seekTime.textContent = `${clock(Number(seek.value))} / ${clock(Number(seek.max))}`;
+});
+seek.addEventListener("change", () => {
+  seeking = false;
+  const video = mount.querySelector("video");
+  if (!video) return;
+  const b = video.buffered;
+  if (!b.length) return;
+  // Stay inside what has been received (older video is dropped after 2 min).
+  const target = Math.min(Math.max(Number(seek.value), b.start(0)), b.end(b.length - 1) - 0.5);
+  video.currentTime = Math.max(0, target);
+});
 
 pauseBtn.addEventListener("click", () => {
   const video = mount.querySelector("video");
@@ -422,8 +478,9 @@ async function streamIntoVideo(video, url, msg) {
       const { done, value } = await reader.read();
       if (done) break;
       if (abort.signal.aborted || ms.readyState !== "open") return;
-      // Keep memory bounded on phones: drop video more than 30s behind.
-      const behind = video.currentTime - 30;
+      // Keep memory bounded on phones: drop video more than 2 minutes behind
+      // (the seek bar can go back that far).
+      const behind = video.currentTime - 120;
       if (sb.buffered.length && sb.buffered.start(0) < behind) {
         sb.remove(0, behind);
         await updated();
@@ -453,7 +510,10 @@ async function init() {
   renderHours(false);
   try {
     const [sources, health] = await Promise.all([
-      fetch("/api/sources").then((r) => r.json()),
+      fetch("/api/sources").then((r) => {
+        if (r.status === 401) location.replace("/login.html");
+        return r.json();
+      }),
       fetch("/api/health").then((r) => r.json()),
     ]);
     cameras = sources.flatMap((s) => s.cameras);

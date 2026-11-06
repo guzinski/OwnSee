@@ -134,3 +134,9 @@ dialog.addEventListener("close", () => {
   pairQr.replaceChildren();
 });
 pairBtn.onclick = startPairing;
+
+// Log this browser out (the hub forgets its session).
+document.getElementById("logout-btn").onclick = async () => {
+  await fetch("/api/logout", { method: "POST" }).catch(() => {});
+  location.replace("/login.html");
+};

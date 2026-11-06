@@ -311,3 +311,60 @@ video-stream .mode, video-stream .status { display: none; }
 .dl-text { flex: 1; color: var(--muted); overflow-wrap: anywhere; }
 .dl-cancel { border: 0; background: none; color: var(--cobalt); font-weight: 600; padding: 0.2rem 0.4rem; }
 .dl-bar { display: block; width: 100%; height: 6px; margin-top: 0.45rem; accent-color: var(--cobalt); }
+
+/* Recording seek bar, in the stage bar where the title is on live view.
+   Track: played (white), arrived (light), not yet received (faint). */
+.seek { flex: 1; display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.seek-time { color: #fff; font-variant-numeric: tabular-nums; font-size: 0.875rem; white-space: nowrap; text-shadow: 0 1px 3px rgb(0 0 0 / 0.6); }
+.seek input[type="range"] {
+  --played: 0%;
+  --loaded: 0%;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.seek input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #fff var(--played), rgb(255 255 255 / 0.55) var(--played) var(--loaded), rgb(255 255 255 / 0.2) var(--loaded));
+}
+.seek input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #fff var(--played), rgb(255 255 255 / 0.55) var(--played) var(--loaded), rgb(255 255 255 / 0.2) var(--loaded));
+}
+.seek input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+.seek input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: #fff; }
+
+/* Login page (home network). */
+.login-page { min-height: 100dvh; display: grid; place-items: center; padding: 1.5rem; }
+.login { width: min(100%, 22rem); display: grid; gap: 1rem; justify-items: center; text-align: center; }
+.login h1 { margin: 0; font-family: var(--display); font-size: 1.6rem; }
+.login form { width: 100%; display: grid; gap: 0.6rem; text-align: left; }
+.login input {
+  min-height: 48px;
+  padding: 0 1rem;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--card);
+  font: inherit;
+  color: var(--ink);
+}
+.login input:focus { outline: none; border-color: var(--cobalt); }
+.login-btn { background: var(--cobalt); color: #fff; }
+.login-btn:disabled { opacity: 0.6; }
+.login-msg { min-height: 1.4em; }
+.logout-btn { margin-top: 1.5rem; }

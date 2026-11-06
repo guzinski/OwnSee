@@ -31,10 +31,11 @@ put() { # src dst label
 echo "Restoring:"
 put "$STAGE/hub/.env.local"        "$REPO/.env.local"        ".env.local"
 put "$STAGE/hub/data/sources.json" "$REPO/data/sources.json" "data/sources.json"
+put "$STAGE/hub/data/auth.json"    "$REPO/data/auth.json"    "data/auth.json"
 put "$STAGE/hub/data/pki"          "$REPO/data/pki"          "data/pki/"
 put "$STAGE/hub/data/wg"           "$REPO/data/wg"           "data/wg/"
 put "$STAGE/home/.ownsee"          "$HOME/.ownsee"           "~/.ownsee/"
-chmod 600 "$REPO/.env.local" 2>/dev/null || true
+chmod 600 "$REPO/.env.local" "$REPO/data/auth.json" 2>/dev/null || true
 chmod -R go-rwx "$REPO/data/pki" "$REPO/data/wg" "$HOME/.ownsee" 2>/dev/null || true
 echo
 echo "Next: docs/OPERATIONS.md, \"Restore on a new machine\" (WireGuard config + service)."
