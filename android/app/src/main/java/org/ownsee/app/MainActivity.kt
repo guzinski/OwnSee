@@ -1,28 +1,17 @@
 package org.ownsee.app
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import org.ownsee.app.ui.App
-
-private val Colors = darkColorScheme(
-    primary = Color(0xFF4DA3FF),
-    onPrimary = Color(0xFF04121F),
-    background = Color(0xFF0B0E13),
-    surface = Color(0xFF151A22),
-    surfaceVariant = Color(0xFF1D242E),
-    onSurface = Color(0xFFE6EDF3),
-    onSurfaceVariant = Color(0xFF8B98A9),
-    outline = Color(0xFF273041),
-)
+import org.ownsee.app.ui.OwnSeeTheme
 
 class MainActivity : ComponentActivity() {
     /** An ownsee://pair link the app was opened with (QR scanned by another app, or adb). */
@@ -32,9 +21,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Tls.install(this) // no-op until paired
         pairingLink = pairingLinkOf(intent)
-        enableEdgeToEdge()
+        // The UI is always light, so bar icons stay dark even in system dark mode.
+        val bars = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         setContent {
-            MaterialTheme(colorScheme = Colors) {
+            OwnSeeTheme {
                 App(pairingLink = pairingLink, onPairingLinkHandled = { pairingLink = null })
             }
         }

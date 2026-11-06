@@ -1,4 +1,5 @@
 <resources>
     <color name="bg">#0B0E13</color>
     <color name="accent">#4DA3FF</color>
+    <color name="window">#EEF1EA</color>
 </resources>

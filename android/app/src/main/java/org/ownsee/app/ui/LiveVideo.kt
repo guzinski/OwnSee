@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -31,6 +32,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
+import org.ownsee.app.R
+
+private const val STATUS_NONE = 0
+private const val STATUS_CONNECTING = 1
+private const val STATUS_RECONNECTING = 2
 
 /**
  * A live camera stream (fragmented MP4 from go2rtc) in a native ExoPlayer,
@@ -38,14 +44,23 @@ import kotlinx.coroutines.delay
  *
  * The player only exists while the app is in the foreground, so a
  * backgrounded app stops pulling video over mobile data.
+ *
+ * `stretch` fills the box instead of letterboxing. The grid uses it because
+ * some cameras send their sub stream at 720x576 (5:4) with a squeezed 16:9
+ * picture; the tile is already the camera's real 16:9 shape.
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun LiveVideo(url: String, modifier: Modifier = Modifier, keepScreenOn: Boolean = false) {
+fun LiveVideo(
+    url: String,
+    modifier: Modifier = Modifier,
+    keepScreenOn: Boolean = false,
+    stretch: Boolean = false,
+) {
     val ctx = LocalContext.current
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val started = lifecycleState.isAtLeast(Lifecycle.State.STARTED)
-    var status by remember(url) { mutableStateOf("Connecting…") }
+    var status by remember(url) { mutableStateOf(STATUS_CONNECTING) }
 
     val player = remember(url, started) {
         if (!started) null
@@ -70,14 +85,14 @@ fun LiveVideo(url: String, modifier: Modifier = Modifier, keepScreenOn: Boolean 
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 status = when (state) {
-                    Player.STATE_READY -> ""
-                    Player.STATE_BUFFERING -> if (p.currentPosition == 0L) "Connecting…" else ""
+                    Player.STATE_READY -> STATUS_NONE
+                    Player.STATE_BUFFERING -> if (p.currentPosition == 0L) STATUS_CONNECTING else STATUS_NONE
                     else -> status
                 }
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                status = "Reconnecting…"
+                status = STATUS_RECONNECTING
             }
         }
         p.addListener(listener)
@@ -113,7 +128,8 @@ fun LiveVideo(url: String, modifier: Modifier = Modifier, keepScreenOn: Boolean 
                 factory = { c ->
                     PlayerView(c).apply {
                         useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        resizeMode = if (stretch) AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        else AspectRatioFrameLayout.RESIZE_MODE_FIT
                         setShutterBackgroundColor(AndroidColor.BLACK)
                         isClickable = false
                         isFocusable = false
@@ -127,12 +143,12 @@ fun LiveVideo(url: String, modifier: Modifier = Modifier, keepScreenOn: Boolean 
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        if (status.isNotEmpty()) {
+        if (status != STATUS_NONE) {
             Text(
-                status,
+                stringResource(if (status == STATUS_CONNECTING) R.string.connecting else R.string.reconnecting),
                 Modifier.align(Alignment.Center),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White,
             )
         }
     }

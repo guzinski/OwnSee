@@ -1,4 +1,5 @@
-// Paired phones: list, revoke, and pair a new one with a one-time QR code.
+// The Phones dialog: list, revoke, and pair a new one with a one-time QR code.
+import { numericDate, t } from "/i18n.js";
 
 const dialog = document.getElementById("devices");
 const list = document.getElementById("device-list");
@@ -14,12 +15,12 @@ async function loadDevices() {
   try {
     devices = await (await fetch("/api/devices")).json();
   } catch {
-    list.textContent = "Couldn't load devices.";
+    list.textContent = t("loadPhonesFailed");
     return;
   }
   if (!devices.length) {
     const li = document.createElement("li");
-    li.textContent = "No phones paired yet.";
+    li.textContent = t("noPhones");
     list.append(li);
     return;
   }
@@ -27,14 +28,14 @@ async function loadDevices() {
     const li = document.createElement("li");
     if (d.revoked) li.className = "revoked";
     const label = document.createElement("span");
-    label.textContent = `${d.name} · paired ${d.created.slice(0, 10)}${d.revoked ? " · revoked" : ""}`;
+    label.textContent = t("pairedOn", { name: d.name, date: numericDate(new Date(d.created)) }) + (d.revoked ? t("revokedSuffix") : "");
     li.append(label);
     if (!d.revoked) {
       const btn = document.createElement("button");
       btn.className = "pb-btn";
-      btn.textContent = "Revoke";
+      btn.textContent = t("revoke");
       btn.onclick = async () => {
-        if (!confirm(`Revoke "${d.name}"? It loses access immediately and must be paired again.`)) return;
+        if (!confirm(t("revokeConfirm", { name: d.name }))) return;
         await fetch(`/api/devices/${d.id}/revoke`, { method: "POST" });
         loadDevices();
       };
@@ -53,7 +54,7 @@ async function startPairing() {
   stopCountdown();
   pairBox.hidden = false;
   pairQr.replaceChildren();
-  pairInfo.textContent = "Creating pairing code…";
+  pairInfo.textContent = t("creatingCode");
   const res = await fetch("/api/pair/start", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -61,7 +62,8 @@ async function startPairing() {
   });
   const body = await res.json();
   if (!res.ok) {
-    pairInfo.textContent = body.error ?? `Error ${res.status}`;
+    // 400 here only means the page was opened without a usable home address.
+    pairInfo.textContent = res.status === 400 ? t("useLanAddress") : body.error ?? t("errorStatus", { status: res.status });
     return;
   }
   if (body.qrSvg) {
@@ -71,18 +73,17 @@ async function startPairing() {
     code.textContent = body.uri;
     pairQr.append(code);
   }
-  const remoteNote = body.remote
-    ? `Away from home it will use ${body.remote}.`
-    : "No remote address set (HUB_PUBLIC_URL), so it will only work at home.";
+  const remoteNote = body.remote ? t("remoteNote", { address: body.remote }) : t("noRemoteNote");
   const tick = () => {
     const left = Math.max(0, Math.round((body.expires - Date.now()) / 1000));
     if (!left) {
       stopCountdown();
       pairQr.replaceChildren();
-      pairInfo.textContent = "Code expired. Click “Pair a phone” for a new one.";
+      pairInfo.textContent = t("codeExpired");
       return;
     }
-    pairInfo.textContent = `Single use, expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}. ${remoteNote}`;
+    const time = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    pairInfo.textContent = t("codeExpiresIn", { time, note: remoteNote });
   };
   tick();
   countdown = setInterval(() => {
@@ -102,11 +103,11 @@ async function loadApp() {
   try {
     app = await (await fetch(`/api/app?lan=${encodeURIComponent(location.origin)}`)).json();
   } catch {
-    appInfo.textContent = "Couldn't check for the app.";
+    appInfo.textContent = t("checkAppFailed");
     return;
   }
   if (!app.available) {
-    appInfo.textContent = "No app published on this hub yet (run scripts/publish-apk.sh).";
+    appInfo.textContent = t("noAppPublished");
     return;
   }
   const size = `${(app.size / 1e6).toFixed(1)} MB`;
@@ -115,9 +116,9 @@ async function loadApp() {
     appQr.hidden = false;
   }
   appInfo.replaceChildren(
-    `OwnSee ${app.versionName} (${size}). Scan with the phone's camera on this Wi-Fi, or `,
-    Object.assign(document.createElement("a"), { href: "/app/ownsee.apk", textContent: "download it" }),
-    ". Android asks once to allow installs from your browser.",
+    t("appInfoBefore", { version: app.versionName, size }),
+    Object.assign(document.createElement("a"), { href: "/app/ownsee.apk", textContent: t("appInfoLink") }),
+    t("appInfoAfter"),
   );
 }
 

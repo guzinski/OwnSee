@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,7 @@ import org.ownsee.app.HubAddress
 import org.ownsee.app.HubClient
 import org.ownsee.app.Pairing
 import org.ownsee.app.PairingCode
+import org.ownsee.app.R
 
 /**
  * Connect the app to a hub: scan the pairing QR code from the hub's web UI
@@ -65,17 +67,17 @@ fun SetupScreen(
     fun pair(text: String) {
         val code = PairingCode.parse(text)
         if (code == null) {
-            error = "That isn't an OwnSee pairing code."
+            error = ctx.getString(R.string.not_pairing_code)
             return
         }
-        busy = "Pairing…"
+        busy = ctx.getString(R.string.pairing)
         error = null
         scope.launch {
             val result = runCatching { withContext(Dispatchers.IO) { Pairing.pair(ctx, code) } }
             busy = null
             result.fold(
                 onSuccess = { onDone() },
-                onFailure = { error = "Pairing failed: ${it.message ?: it.javaClass.simpleName}" },
+                onFailure = { error = ctx.getString(R.string.pairing_failed, it.message ?: it.javaClass.simpleName) },
             )
         }
     }
@@ -92,24 +94,24 @@ fun SetupScreen(
     }
 
     fun connectManual() {
-        val url = HubAddress.normalize(manual).getOrElse {
+        val url = HubAddress.normalize(ctx, manual).getOrElse {
             manualError = it.message
             return
         }
-        busy = "Connecting…"
+        busy = ctx.getString(R.string.connecting)
         manualError = null
         scope.launch {
             val result = runCatching { withContext(Dispatchers.IO) { HubClient(url).cameras() } }
             busy = null
             result.fold(
                 onSuccess = { cams ->
-                    if (cams.isEmpty()) manualError = "Connected, but the hub has no cameras."
+                    if (cams.isEmpty()) manualError = ctx.getString(R.string.hub_no_cameras)
                     else {
                         HubAddress.saveManual(ctx, url)
                         onDone()
                     }
                 },
-                onFailure = { manualError = "Can't reach the hub: ${it.message ?: it.javaClass.simpleName}" },
+                onFailure = { manualError = ctx.getString(R.string.cant_reach_hub, it.message ?: it.javaClass.simpleName) },
             )
         }
     }
@@ -118,17 +120,20 @@ fun SetupScreen(
         Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(if (paired) "Hub connection" else "Connect to your hub", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(if (paired) R.string.hub_connection else R.string.setup_title), style = MaterialTheme.typography.headlineSmall)
         if (paired) {
             Text(
-                "This phone is paired. Home: ${HubAddress.lan(ctx)}\nAway: ${HubAddress.remote(ctx) ?: "not set"}",
+                stringResource(
+                    R.string.setup_paired_info,
+                    HubAddress.lan(ctx).orEmpty(),
+                    HubAddress.remote(ctx) ?: stringResource(R.string.not_set),
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Text(
-            "On your home Wi-Fi, open the hub's web page, click Devices → Pair a phone, then scan the code. " +
-                "Pairing gives this phone its own certificate for watching away from home.",
+            stringResource(R.string.setup_help),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -137,25 +142,25 @@ fun SetupScreen(
                 scanner.launch(
                     ScanOptions()
                         .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                        .setPrompt("Scan the pairing code shown on the hub's Devices page")
+                        .setPrompt(ctx.getString(R.string.scan_prompt))
                         .setBeepEnabled(false)
                         .setOrientationLocked(false),
                 )
             },
             enabled = busy == null,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text(if (paired) "Pair again" else "Scan pairing code") }
+        ) { Text(stringResource(if (paired) R.string.pair_again else R.string.scan_code)) }
         busy?.let { Text(it) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         HorizontalDivider()
 
-        Text("Or enter an address (home network only)", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.manual_title), style = MaterialTheme.typography.titleSmall)
         OutlinedTextField(
             value = manual,
             onValueChange = { manual = it; manualError = null },
-            label = { Text("Hub address") },
-            placeholder = { Text("hub-ip:3000") },
+            label = { Text(stringResource(R.string.hub_address)) },
+            placeholder = { Text(stringResource(R.string.hub_address_hint)) },
             singleLine = true,
             isError = manualError != null,
             supportingText = manualError?.let { { Text(it) } },
@@ -163,8 +168,8 @@ fun SetupScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = ::connectManual, enabled = busy == null) { Text("Connect") }
-            if (onCancel != null) TextButton(onClick = onCancel) { Text("Cancel") }
+            OutlinedButton(onClick = ::connectManual, enabled = busy == null) { Text(stringResource(R.string.connect)) }
+            if (onCancel != null) TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
         }
     }
 }

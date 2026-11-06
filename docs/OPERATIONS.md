@@ -100,7 +100,7 @@ paired phones need no changes.
 9. **Phones at home.** The app saved the old machine's LAN address at pairing.
    Until it's updated, it falls back to the remote route at home too (it works,
    but goes through the VPS). Re-pair each phone once to store the new home
-   address, then revoke its old entry in Devices.
+   address, then revoke its old entry in Phones.
 
 10. **Publish the app** (only on the machine that builds releases; needs the
     Android SDK, see README):
@@ -146,7 +146,7 @@ Same as above, but instead of step 3:
 | Restart after a code change or `.env.local` edit | `sudo systemctl restart ownsee-hub` |
 | Update the hub | `git pull && sudo systemctl restart ownsee-hub` |
 | Release a new app version | bump `versionCode`/`versionName` in `android/app/build.gradle.kts`, then `bash scripts/publish-apk.sh` |
-| Pair / revoke a phone | web UI → Devices (home network only) |
+| Pair / revoke a phone | web UI → Phones (home network only) |
 | Tunnel status | `sudo wg show` (latest handshake under 2 minutes = up) |
 
 ## Windows/WSL hosts

@@ -73,8 +73,8 @@ object HubAddress {
         }
         throw IOException(
             when {
-                remote == null -> "Hub not reachable on the home network (${lastError?.message})"
-                else -> "Hub not reachable at home or remotely (${lastError?.message})"
+                remote == null -> ctx.getString(R.string.hub_unreachable_home, lastError?.message.orEmpty())
+                else -> ctx.getString(R.string.hub_unreachable_both, lastError?.message.orEmpty())
             },
         )
     }
@@ -95,18 +95,16 @@ object HubAddress {
      * Plain HTTP is only accepted for private addresses (LAN, VPN tunnel),
      * because it is unencrypted; anything else must be https.
      */
-    fun normalize(input: String): Result<String> = runCatching {
+    fun normalize(ctx: Context, input: String): Result<String> = runCatching {
         var s = input.trim().trimEnd('/')
-        require(s.isNotEmpty()) { "Enter the hub address" }
+        require(s.isNotEmpty()) { ctx.getString(R.string.addr_empty) }
         if (!s.contains("://")) s = "http://$s"
         val uri = URI(s)
-        val host = uri.host ?: throw IllegalArgumentException("Not a valid address")
+        val host = uri.host ?: throw IllegalArgumentException(ctx.getString(R.string.addr_invalid))
         when (uri.scheme) {
             "https" -> Unit
-            "http" -> require(isPrivate(host)) {
-                "Plain http is only allowed for LAN or VPN addresses. Use https for anything else."
-            }
-            else -> throw IllegalArgumentException("Use http:// or https://")
+            "http" -> require(isPrivate(host)) { ctx.getString(R.string.addr_http_private) }
+            else -> throw IllegalArgumentException(ctx.getString(R.string.addr_scheme))
         }
         val port = if (uri.port != -1) ":${uri.port}" else ""
         "${uri.scheme}://$host$port"

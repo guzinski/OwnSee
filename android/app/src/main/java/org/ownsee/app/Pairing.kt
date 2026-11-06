@@ -60,7 +60,7 @@ object Pairing {
             .put("token", code.token)
             .put("name", "${Build.MANUFACTURER} ${Build.MODEL}".trim())
             .put("csr", pem("CERTIFICATE REQUEST", csr))
-        val res = JSONObject(post("${code.lan}/api/pair/claim", body.toString()))
+        val res = JSONObject(post(ctx, "${code.lan}/api/pair/claim", body.toString()))
 
         val cf = CertificateFactory.getInstance("X.509")
         val ca = cf.generateCertificate(res.getString("ca").byteInputStream()) as X509Certificate
@@ -69,10 +69,10 @@ object Pairing {
         val fp = MessageDigest.getInstance("SHA-256").digest(ca.encoded).joinToString("") { "%02x".format(it) }
         if (fp != code.caFingerprint) {
             ks.deleteEntry(KEY_ALIAS)
-            throw IOException("The hub's certificate doesn't match the pairing code. Pairing stopped.")
+            throw IOException(ctx.getString(R.string.cert_mismatch))
         }
         cert.verify(ca.publicKey) // signed by that CA
-        if (cert.publicKey != pair.public) throw IOException("The hub returned a certificate for a different key.")
+        if (cert.publicKey != pair.public) throw IOException(ctx.getString(R.string.cert_wrong_key))
 
         // Attach the signed certificate (and the CA) to the keystore key.
         ks.setKeyEntry(KEY_ALIAS, pair.private, null, arrayOf(cert, ca))
@@ -106,7 +106,7 @@ object Pairing {
         }
     }
 
-    private fun post(url: String, json: String): String {
+    private fun post(ctx: Context, url: String, json: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8_000
         conn.readTimeout = 15_000
@@ -119,6 +119,9 @@ object Pairing {
             val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
             if (code !in 200..299) {
+                // 403 is the one failure people hit in normal use; the hub's other
+                // messages are technical and stay in English.
+                if (code == 403) throw IOException(ctx.getString(R.string.pair_code_expired))
                 val msg = runCatching { JSONObject(text).getString("error") }.getOrDefault("HTTP $code")
                 throw IOException(msg)
             }

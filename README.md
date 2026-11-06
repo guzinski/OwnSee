@@ -137,7 +137,7 @@ Phone ──HTTPS + device cert──► VPS :8443 ══ WireGuard (opened from
 - **Only paired devices get in.** The HTTPS listener requires a client certificate from
   that CA *and* checks the paired-device list on every connection and request.
   Revoking a phone in the web UI cuts its open streams immediately.
-- **Pairing happens at home.** Web UI → **Devices** → **Pair a phone** shows a one-time
+- **Pairing happens at home.** Web UI → **Phones** → **Pair a phone** shows a one-time
   QR code (10 minutes, single use) with the hub's addresses and the CA fingerprint. The
   app creates its key in the Android Keystore (hardware-backed, never leaves the phone),
   sends only a certificate request, and checks the returned CA against the fingerprint.
@@ -159,7 +159,7 @@ Setup:
 4. **Hub:** set `HUB_PUBLIC_URL=https://<vps-ip>:8443` (and `HUB_LAN_URL` if needed) in
    `.env.local`, then restart. The CA is created on first start (needs `openssl`;
    `qrencode` draws the pairing QR).
-5. **Phone:** install the app, then pair from the web UI's Devices dialog.
+5. **Phone:** install the app, then pair from the web UI's Phones dialog.
 
 Pick a VPS close to you: every request crosses it twice.
 
@@ -187,7 +187,7 @@ as a separate app, "OwnSee (dev)".
 (`~/.ownsee/signing.properties`, or `OWNSEE_SIGNING=<path>`). Android only installs an
 update over an existing app when both are signed with the same key, so back it up (see
 docs/OPERATIONS.md). `bash scripts/publish-apk.sh` builds the release and hands it to the
-hub, which offers it under Devices → "Get the app" (`/app/ownsee.apk`).
+hub, which offers it under Phones → "Get the app" (`/app/ownsee.apk`).
 
 ## Roadmap
 

@@ -1,137 +1,90 @@
+/* Fonts are served by the hub, so the page makes no third-party requests. */
+@font-face {
+  font-family: "Figtree";
+  src: url("/fonts/Figtree.ttf") format("truetype");
+  font-weight: 300 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/BricolageGrotesque.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
 :root {
-  --bg: #0b0e13;
-  --surface: #151a22;
-  --surface-2: #1d242e;
-  --border: #273041;
-  --text: #e6edf3;
-  --muted: #8b98a9;
-  --accent: #4da3ff;
-  color-scheme: dark;
+  --ground: #eef1ea;
+  --ink: #18282a;
+  --muted: #47585a;
+  --faint: #5e6e70;
+  --card: #ffffff;
+  --cobalt: #2b45c8;
+  --cobalt-tint: #c9d1f4;
+  --live: #0b6b45;
+  --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--ground);
+  color: var(--ink);
+  font: 16px/1.4 Figtree, "Segoe UI", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-.topbar {
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+h2 { margin: 0; font-size: 1.125rem; font-weight: 600; }
+.muted { margin: 0; color: var(--muted); font-size: 0.875rem; }
+svg.line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  padding: max(1rem, env(safe-area-inset-top)) clamp(1rem, 3vw, 2.5rem) 1rem;
 }
-
-.topbar h1 {
-  font-size: 1.05rem;
+.top h1 { margin: 0; font: 700 2.25rem/1.1 var(--display); }
+.status { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.pill-btn {
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--card);
   font-weight: 600;
-  margin: 0;
-  letter-spacing: 0.01em;
+  font-size: 0.95rem;
 }
 
-.actions { display: flex; align-items: center; gap: 1rem; }
-.status { color: var(--muted); font-size: 0.85rem; }
-
-.toggle {
+.layout {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-  cursor: pointer;
-  user-select: none;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 0 clamp(1rem, 3vw, 2.5rem) 1.5rem;
 }
-.toggle input { accent-color: var(--accent); }
+.watch { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.recordings { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  gap: 0.75rem;
-  padding: 0.75rem;
-}
-
-.tile {
+/* The selected camera */
+.stage {
   position: relative;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  background: #000;
   aspect-ratio: 16 / 9;
-  cursor: pointer;
-  transition: border-color 0.15s, transform 0.1s;
-}
-.tile:hover { border-color: var(--accent); }
-.tile:active { transform: scale(0.995); }
-
-.tile video-stream,
-.viewer-mount video-stream { display: block; width: 100%; height: 100%; }
-/* go2rtc enables native video controls; on phones they swallow the tap, so
-   the tile never opened. Let taps fall through to the tile button instead. */
-.tile video-stream { pointer-events: none; }
-
-/* Fullscreen: let the video fill the screen instead of the 16:9 / 62dvh box. */
-.viewer-mount:fullscreen {
-  max-height: none;
-  aspect-ratio: auto;
+  max-height: 72dvh;
   width: 100%;
-  height: 100%;
-}
-.tile video,
-.viewer-mount video { width: 100%; height: 100%; object-fit: contain; background: #000; }
-
-.tile-label {
-  position: absolute;
-  left: 0.5rem;
-  bottom: 0.5rem;
-  padding: 0.15rem 0.5rem;
-  font-size: 0.8rem;
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 6px;
-  backdrop-filter: blur(4px);
-}
-
-/* go2rtc player injects .mode/.status spans for connection state */
-video-stream .mode, video-stream .status {
-  position: absolute;
-  top: 0.4rem;
-  left: 0.5rem;
-  font-size: 0.7rem;
-  color: var(--muted);
-  pointer-events: none;
-}
-
-.viewer {
-  border: none;
-  background: #000;
-  color: var(--text);
-  width: min(96vw, 1280px);
-  max-height: 94dvh;
-  padding: 0;
-  border-radius: 14px;
+  border-radius: 24px;
   overflow: hidden;
-}
-/* Column layout so the video shrinks to leave room for playback controls. */
-.viewer[open] { display: flex; flex-direction: column; }
-.viewer::backdrop { background: rgba(0, 0, 0, 0.8); }
-.viewer-mount {
-  aspect-ratio: 16 / 9;
-  max-height: 62dvh; /* never push the controls off-screen */
-  flex: 0 1 auto;
-  min-height: 0;
   background: #000;
-  position: relative;
 }
+.stage:fullscreen { max-height: none; border-radius: 0; aspect-ratio: auto; }
+.stage-mount { position: absolute; inset: 0; }
+.stage-mount video-stream { display: block; width: 100%; height: 100%; }
+.stage-mount video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 .mount-msg {
   position: absolute;
   inset: 0;
@@ -139,115 +92,222 @@ video-stream .mode, video-stream .status {
   place-items: center;
   padding: 1rem;
   text-align: center;
-  color: var(--muted);
+  color: #fff;
   font-size: 0.9rem;
   pointer-events: none;
 }
-.viewer-mount video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 
-.viewer-tabs {
+.live-pill, .back-live {
+  position: absolute;
+  top: 0.875rem;
+  background: var(--card);
+  color: var(--live);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 999px;
+}
+.live-pill {
+  left: 0.875rem;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
 }
-.tab {
-  padding: 0.3rem 0.8rem;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.85rem;
-  cursor: pointer;
+.live-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--live); }
+.back-live { left: 0.875rem; min-height: 36px; padding: 0 0.875rem; border: 0; }
+
+.stage-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 0.875rem 0.75rem;
+  background: linear-gradient(to top, rgba(10, 20, 20, 0.72), rgba(10, 20, 20, 0));
 }
-.tab.active { background: var(--surface-2); color: var(--text); border-color: var(--border); }
-.viewer-label {
-  margin-left: auto;
-  padding-right: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--muted);
+.stage-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff;
+  font: 600 clamp(1.4rem, 3vw, 2rem)/1.2 var(--display);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+.round {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--ink);
+}
+.round svg { width: 22px; height: 22px; }
+
+/* The other cameras */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 0.75rem;
+}
+.tile {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16 / 9;
+}
+.tile video-stream { display: block; width: 100%; height: 100%; pointer-events: none; } /* its native controls swallow taps */
+/* Tiles are 16:9 like the cameras; some sub streams are 720x576 with a squeezed
+   16:9 picture, so stretch them back instead of letterboxing. */
+.tile video { width: 100%; height: 100%; object-fit: fill; background: #000; }
+.tile-label {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.15rem 0.625rem;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
-.playback-controls {
-  padding: 0.6rem 0.75rem;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+/* go2rtc's player turns on native controls and injects .mode/.status spans */
+video-stream video::-webkit-media-controls { display: none !important; }
+video-stream .mode, video-stream .status { display: none; }
+
+/* Day and hour pickers */
+.days {
+  display: flex;
+  flex-direction: row-reverse; /* anchors the newest day at the right edge */
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.day {
+  flex: 0 0 calc((100% - 24px) / 7);
+  height: 60px;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-/* display:flex above would otherwise override the hidden attribute */
-.playback-controls[hidden] { display: none; }
-.pb-row {
-  display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--card);
 }
-.pb-date,
-.pb-select,
-.pb-btn {
-  background: var(--surface-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 0.35rem 0.55rem;
-  font: inherit;
-  font-size: 0.9rem;
+.day span { font-size: 0.8125rem; font-weight: 500; }
+.day b { font-size: 1.125rem; font-weight: 600; }
+.day[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+.pick { display: flex; flex-direction: column; gap: 0.5rem; }
+.hours { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.hour {
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 0.9375rem;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-.pb-date { width: 13ch; text-align: center; } /* 10 chars + padding; border-box counts padding */
-.pb-date:invalid { border-color: #d9534f; }
-.pb-select { min-width: 4.2rem; cursor: pointer; }
-.pb-colon { color: var(--muted); }
-.pb-btn { cursor: pointer; }
-.pb-btn:hover:not(:disabled) { border-color: var(--accent); }
-.pb-btn:disabled { opacity: 0.4; cursor: default; }
-.pb-play { background: var(--accent); color: #04121f; border-color: var(--accent); font-weight: 600; }
-.close {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 2;
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 1rem;
-  cursor: pointer;
+.hour:disabled { background: transparent; color: var(--faint); cursor: default; }
+.hour.missing { border: 1px dashed var(--faint); }
+.hour[aria-pressed="true"] { background: var(--cobalt); color: #fff; }
+
+.blocks {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1px;
+  height: 44px;
+  border-radius: 12px;
+  overflow: hidden;
 }
-.close:hover { background: rgba(0, 0, 0, 0.85); }
+.block { padding: 0; border: 0; background: var(--card); }
+.block:disabled { background: transparent; cursor: default; }
+.block.past { background: var(--cobalt-tint); }
+.block.now { background: var(--cobalt); }
 
-/* Fullscreen button sits in the tab bar, clear of the absolutely-positioned ✕ */
-.fs-btn { margin-right: 2.4rem; font-size: 1rem; line-height: 1; }
+/* Phone browsers: edge to edge, like the app's home screen */
+@media (max-width: 700px) {
+  .layout { padding: 0 0 1rem; gap: 1rem; }
+  .watch { gap: 3px; flex-basis: 100%; }
+  .stage { border-radius: 0; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+  .tile { border-radius: 0; }
+  .recordings { padding: 0 1rem; }
+}
 
-/* Devices / pairing dialog */
+/* Phones dialog */
 .devices {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  border-radius: 14px;
+  border: 0;
+  background: var(--ground);
+  color: var(--ink);
+  border-radius: 24px;
   width: min(92vw, 460px);
   padding: 1.25rem;
 }
-.devices::backdrop { background: rgba(0, 0, 0, 0.7); }
-.devices h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
-.muted { color: var(--muted); font-size: 0.85rem; }
+.devices::backdrop { background: rgba(10, 20, 20, 0.5); }
+.devices h2 { margin: 0 0 0.5rem; }
+.close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+}
+.close svg { width: 20px; height: 20px; }
 .device-list { list-style: none; padding: 0; margin: 0.75rem 0; display: grid; gap: 0.4rem; }
 .device-list li {
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-  padding: 0.45rem 0.6rem; background: var(--surface-2); border-radius: 8px; font-size: 0.9rem;
+  padding: 0.5rem 0.75rem; background: var(--card); border-radius: 14px; font-size: 0.9rem;
 }
-.device-list li.revoked { opacity: 0.5; }
-.pair-box[hidden], .pair-qr[hidden] { display: none; }
+.device-list li.revoked { opacity: 0.55; }
+.pb-btn {
+  min-height: 40px;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ground);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.pb-play { background: var(--cobalt); color: #fff; }
 .app-box { margin-bottom: 1rem; }
-.pair-qr { background: #fff; border-radius: 10px; padding: 0.5rem; width: fit-content; margin: 0.5rem auto; }
-.pair-qr svg { display: block; width: 260px; height: 260px; }
-.pair-qr code { color: #000; word-break: break-all; font-size: 0.75rem; }
+.pair-qr svg { display: block; max-width: 240px; background: #fff; }
+
+/* Recording download progress, on the video above the controls. */
+.dl {
+  position: absolute;
+  left: 0.875rem;
+  right: 0.875rem;
+  top: 3.75rem; /* below "Back to live" */
+  z-index: 2;
+  max-width: 28rem;
+  margin-left: auto;
+  padding: 0.6rem 0.8rem;
+  background: var(--card);
+  border-radius: 14px;
+  font-size: 0.875rem;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+}
+.dl-row { display: flex; align-items: center; gap: 0.5rem; }
+.dl-text { flex: 1; color: var(--muted); overflow-wrap: anywhere; }
+.dl-cancel { border: 0; background: none; color: var(--cobalt); font-weight: 600; padding: 0.2rem 0.4rem; }
+.dl-bar { display: block; width: 100%; height: 6px; margin-top: 0.45rem; accent-color: var(--cobalt); }

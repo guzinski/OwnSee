@@ -27,6 +27,7 @@ const MIME: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".ico": "image/x-icon",
+  ".ttf": "font/ttf",
 };
 
 /** Public camera list for the UI — no credentials, just ids/names/qualities. */

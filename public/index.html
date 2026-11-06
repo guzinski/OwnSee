@@ -3,67 +3,76 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0e13" />
-  <title>Camera Hub</title>
+  <meta name="theme-color" content="#eef1ea" />
+  <title>OwnSee</title>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <h1>Camera Hub</h1>
-    <div class="actions">
-      <label class="toggle">
-        <input type="checkbox" id="quality" />
-        <span>HD (main stream)</span>
-      </label>
-      <span id="status" class="status" aria-live="polite"></span>
-      <button type="button" id="devices-btn" class="pb-btn">Devices</button>
+  <header class="top">
+    <div class="top-text">
+      <h1 data-i18n="home"></h1>
+      <p id="status" class="status" aria-live="polite"></p>
     </div>
+    <button type="button" id="devices-btn" class="pill-btn" data-i18n="phones"></button>
   </header>
-  <main id="grid" class="grid" aria-busy="true"></main>
 
-  <dialog id="viewer" class="viewer">
-    <button class="close" id="close" aria-label="Close">✕</button>
-    <div class="viewer-tabs">
-      <button class="tab active" id="tab-live" data-mode="live">Live</button>
-      <button class="tab" id="tab-playback" data-mode="playback">Playback</button>
-      <span class="viewer-label" id="viewer-label"></span>
-      <button class="tab fs-btn" id="fullscreen" aria-label="Fullscreen" title="Fullscreen">⛶</button>
-    </div>
-    <div id="viewer-mount" class="viewer-mount"></div>
-    <div id="playback-controls" class="playback-controls" hidden>
-      <div class="pb-row">
-        <button type="button" id="pb-prev" class="pb-btn" aria-label="Previous day">◀</button>
-        <input id="pb-date" class="pb-date" inputmode="numeric" maxlength="10"
-               placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" aria-label="Date (YYYY-MM-DD)" />
-        <button type="button" id="pb-next" class="pb-btn" aria-label="Next day">▶</button>
-      </div>
-      <div class="pb-row">
-        <select id="pb-hour" class="pb-select" aria-label="Hour"></select>
-        <span class="pb-colon">:</span>
-        <select id="pb-minute" class="pb-select" aria-label="Minute"></select>
-        <button type="button" id="pb-play" class="pb-btn pb-play">Play</button>
-        <span id="pb-status" class="status"></span>
-      </div>
-    </div>
-  </dialog>
+  <div class="layout">
+    <main class="watch">
+      <section id="stage" class="stage" data-i18n-label="selectedCamera">
+        <div id="stage-mount" class="stage-mount"></div>
+        <span id="live-pill" class="live-pill" data-i18n="live"></span>
+        <button type="button" id="back-live" class="back-live" data-i18n="backToLive" hidden></button>
+        <div class="stage-bar">
+          <button type="button" id="pause" class="round" data-i18n-label="pause" hidden>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path id="pause-icon" d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+          </button>
+          <span id="stage-title" class="stage-title"></span>
+          <button type="button" id="save-photo" class="round" data-i18n-label="savePhoto" title="">
+            <svg viewBox="0 0 24 24" class="line" aria-hidden="true"><path d="M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/><path d="M15.5 13.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z"/><path d="M8 7l2-3h4l2 3"/></svg>
+          </button>
+          <button type="button" id="download" class="round" data-i18n-label="downloadClip" title="" hidden>
+            <svg viewBox="0 0 24 24" class="line" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M4 20h16"/></svg>
+          </button>
+          <button type="button" id="fullscreen" class="round" data-i18n-label="fullScreen" title="">
+            <svg viewBox="0 0 24 24" class="line" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          </button>
+        </div>
+      </section>
+      <div id="grid" class="grid" aria-busy="true"></div>
+    </main>
+
+    <aside class="recordings" data-i18n-label="recordings">
+      <div id="days" class="days" role="group" data-i18n-label="day"></div>
+      <section class="pick">
+        <h2 data-i18n="pickHour"></h2>
+        <p id="rec-status" class="muted" aria-live="polite" hidden></p>
+        <div id="hours" class="hours"></div>
+      </section>
+      <section id="blocks-box" class="pick" hidden>
+        <h2 id="blocks-title"></h2>
+        <div id="blocks" class="blocks"></div>
+      </section>
+    </aside>
+  </div>
 
   <dialog id="devices" class="devices">
-    <button class="close" id="devices-close" aria-label="Close">✕</button>
-    <h2>Get the app</h2>
+    <button class="close" id="devices-close" data-i18n-label="close">
+      <svg viewBox="0 0 24 24" class="line" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h2 data-i18n="getApp"></h2>
     <div id="app-box" class="app-box">
-      <p class="muted" id="app-info">Checking…</p>
+      <p class="muted" id="app-info" data-i18n="checking"></p>
       <div id="app-qr" class="pair-qr" hidden></div>
     </div>
 
-    <h2>Paired phones</h2>
-    <p class="muted">Phones paired here can watch remotely through the hub's HTTPS address.
-      Pairing only works on this home network.</p>
+    <h2 data-i18n="pairedPhones"></h2>
+    <p class="muted" data-i18n="pairedIntro"></p>
     <ul id="device-list" class="device-list"></ul>
-    <button type="button" id="pair-btn" class="pb-btn pb-play">Pair a phone</button>
+    <button type="button" id="pair-btn" class="pb-btn pb-play" data-i18n="pairPhone"></button>
     <div id="pair-box" class="pair-box" hidden>
-      <p>In the OwnSee app, tap <b>Scan pairing code</b> and point it at this code.</p>
+      <p><span data-i18n="pairInstructionBefore"></span><b data-i18n="pairInstructionButton"></b><span data-i18n="pairInstructionAfter"></span></p>
       <div id="pair-qr" class="pair-qr"></div>
       <p id="pair-info" class="muted"></p>
     </div>

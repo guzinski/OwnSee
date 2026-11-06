@@ -21,7 +21,9 @@ data class CameraInfo(
 }
 
 /** One NVR recording segment (the NVR records 5-minute files, local time). */
-data class Segment(val fileName: String, val begin: String, val end: String) {
+/** `size` is the NVR file size in bytes (0 if unknown); the download is a
+ *  little smaller, since audio is dropped. */
+data class Segment(val fileName: String, val begin: String, val end: String, val size: Long = 0) {
     /** "HH" of the start time; begin is "YYYY-MM-DD HH:MM:SS". */
     val hour: String get() = begin.substring(11, 13)
     val minute: String get() = begin.substring(14, 16)
@@ -61,7 +63,7 @@ class HubClient(val baseUrl: String) {
         val arr = JSONArray(get("/api/recordings?camera=${enc(cameraId)}&date=${enc(date)}"))
         return (0 until arr.length()).map {
             val r = arr.getJSONObject(it)
-            Segment(r.getString("fileName"), r.getString("begin"), r.getString("end"))
+            Segment(r.getString("fileName"), r.getString("begin"), r.getString("end"), r.optLong("size", 0))
         }
     }
 
@@ -73,9 +75,16 @@ class HubClient(val baseUrl: String) {
     fun liveUrl(streamId: String): String =
         "$baseUrl/go2rtc/api/stream.mp4?src=${enc(streamId)}&mp4"
 
+    /** One JPEG frame of a live stream, from go2rtc. */
+    fun snapshotUrl(streamId: String): String =
+        "$baseUrl/go2rtc/api/frame.jpeg?src=${enc(streamId)}"
+
     fun playbackUrl(cameraId: String, seg: Segment): String =
         "$baseUrl/api/playback?camera=${enc(cameraId)}&file=${enc(seg.fileName)}" +
             "&begin=${enc(seg.begin)}&end=${enc(seg.end)}"
+
+    /** The same recording as a file download (see Downloads). */
+    fun downloadUrl(cameraId: String, seg: Segment): String = playbackUrl(cameraId, seg) + "&download=1"
 
     private fun get(path: String): String {
         val conn = URL(baseUrl + path).openConnection() as HttpURLConnection
