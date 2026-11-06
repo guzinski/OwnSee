@@ -7,7 +7,7 @@ function creds(): { user: string; pass: string } {
   return { user: process.env.NVR_USER ?? "", pass: process.env.NVR_PASS ?? "" };
 }
 
-interface Target { host: string; port: number; channel: number }
+interface Target { host: string; port: number; channel: number; name: string }
 
 /** Resolve a camera id (e.g. "cam0") to its NVR address and channel, from
  *  data/sources.json, the same place live view gets it. The DVRIP port is
@@ -17,7 +17,7 @@ function targetOf(cameraId: string): Target | null {
     for (const c of s.cameras) {
       if (c.id !== cameraId) continue;
       const m = c.streams[0]?.src.match(/@[^:/?]+:(\d+)/);
-      return { host: s.host, port: m ? Number(m[1]) : 34567, channel: c.channel };
+      return { host: s.host, port: m ? Number(m[1]) : 34567, channel: c.channel, name: c.name };
     }
   return null;
 }
@@ -64,8 +64,16 @@ export async function handleRecordings(
   }
 }
 
-/** GET /api/playback?camera=cam0&file=<name>&begin=<t>&end=<t>
- *  Streams the recording as fragmented MP4 (video only, for now). */
+/** A download filename like "Front_door_2026-11-05_22-25-00.mp4". */
+function downloadName(camera: string, begin: string): string {
+  const safe = (s: string) => s.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+  return `${safe(camera) || "camera"}_${safe(begin.replace(/:/g, "-").replace(" ", "_"))}.mp4`;
+}
+
+/** GET /api/playback?camera=cam0&file=<name>&begin=<t>&end=<t>[&download=1]
+ *  Streams the recording as fragmented MP4 (video only, for now). With
+ *  download=1 it is sent as a file attachment. The NVR sends recordings at
+ *  about real-time speed, so a 5-minute segment takes about 5 minutes. */
 export async function handlePlayback(
   url: URL,
   res: http.ServerResponse,
@@ -74,6 +82,7 @@ export async function handlePlayback(
   const fileName = url.searchParams.get("file") ?? "";
   const begin = url.searchParams.get("begin") ?? "";
   const end = url.searchParams.get("end") ?? "";
+  const download = url.searchParams.get("download") === "1";
   const target = targetOf(camera);
   if (!target || !fileName || !begin || !end) {
     res.writeHead(400, { "content-type": "text/plain" });
@@ -109,9 +118,13 @@ export async function handlePlayback(
       const fmt = detectCodec(chunk) === "hevc" ? "hevc" : "h264";
       const b = parseLocal(begin), e = parseLocal(end);
       const duration = b && e ? Math.max(1, (e.getTime() - b.getTime()) / 1000) : 300;
+      // Raw frames carry no timestamps, so ffmpeg needs the real frame rate.
+      // Cameras differ (some 15, some 20 fps); a wrong rate plays the clip too
+      // fast, and the player then stalls waiting for the real-time NVR.
+      const fps = video.frameRate() ?? 20;
       ffmpeg = spawn("ffmpeg", [
         "-hide_banner", "-loglevel", "error",
-        "-fflags", "+genpts", "-r", "20",
+        "-fflags", "+genpts", "-r", String(fps),
         "-f", fmt, "-i", "pipe:0",
         "-c", "copy",
         "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof",
@@ -127,6 +140,9 @@ export async function handlePlayback(
         // and the segment length up front (the stream itself has no duration).
         "x-codec": codecString(chunk, fmt),
         "x-duration": String(duration),
+        ...(download && {
+          "content-disposition": `attachment; filename="${downloadName(target.name, begin)}"`,
+        }),
       });
       ffmpeg.stdout!.pipe(res);
       ffmpeg.stderr!.on("data", (d) => console.error("[ffmpeg]", d.toString().trim()));

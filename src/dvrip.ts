@@ -19,6 +19,9 @@ export interface Recording {
   end: string;
   fileName: string;
   disk: number;
+  /** File size in bytes, as the NVR reports it (FileLength, in KB). The
+   *  downloaded MP4 is slightly smaller: audio is dropped. */
+  size?: number;
 }
 
 function sofiaHash(password: string): string {
@@ -147,6 +150,7 @@ export class DvripClient {
       end: f.EndTime,
       fileName: f.FileName,
       disk: f.DiskNo ?? 0,
+      ...(Number.isFinite(parseInt(f.FileLength, 16)) && { size: parseInt(f.FileLength, 16) * 1024 }),
     }));
   }
 
@@ -169,7 +173,7 @@ export class DvripClient {
 
   /** Start playback of a recording by name; returns a stream of clean
    *  Annex-B video (audio dropped). Close the client to stop. */
-  openPlayback(rec: Recording): Readable {
+  openPlayback(rec: Recording): Readable & { frameRate(): number | undefined } {
     const param = {
       PlayMode: "ByName",
       FileName: rec.fileName,
@@ -178,7 +182,9 @@ export class DvripClient {
       TransMode: "TCP",
     };
     const deframer = new Deframer();
-    const out = new Readable({ read() {} });
+    const out = Object.assign(new Readable({ read() {} }), {
+      frameRate: () => frameRate(deframer.fps),
+    });
     this.onData = (payload) => {
       for (const v of deframer.push(payload)) out.push(v);
     };
@@ -217,10 +223,21 @@ export class DvripClient {
   }
 }
 
+/** The camera's real frame rate from a Xiongmai header value: the nearest
+ *  standard rate (measured: 20 fps cameras report 20/21, 15 fps report 15/16). */
+export function frameRate(header: number | undefined): number | undefined {
+  if (!header) return undefined;
+  const rates = [5, 6, 8, 10, 12, 15, 20, 25, 30];
+  return rates.reduce((a, b) => (Math.abs(b - header) < Math.abs(a - header) ? b : a));
+}
+
 /** Streaming Xiongmai de-framer: emits H.264/H.265 Annex-B video payloads,
  *  dropping audio and the proprietary frame headers, across TCP chunks. */
 class Deframer {
   private buf = Buffer.alloc(0);
+  /** Frame rate from the first I-frame header (byte 5). It jitters by one
+   *  (a 15 fps camera reports 15 or 16), so use frameRate() for the real one. */
+  fps: number | undefined;
 
   push(chunk: Buffer): Buffer[] {
     this.buf = Buffer.concat([this.buf, chunk]);
@@ -235,6 +252,7 @@ class Deframer {
       let hdr: number, len: number, video = false;
       if (tag === 0xfc || tag === 0xfe) {
         if (p + 16 > this.buf.length) break;
+        if (tag === 0xfc && this.fps === undefined && this.buf[p + 5] > 0) this.fps = this.buf[p + 5];
         hdr = 16;
         len = this.buf.readUInt32LE(p + 12);
         video = true;
