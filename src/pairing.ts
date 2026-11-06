@@ -40,14 +40,29 @@ function isLoopback(url: string): boolean {
   }
 }
 
-/** The addresses a phone should use, as put into the pairing QR. Read at
- *  request time, so values from .env.local apply. */
-function addresses(lanFromBrowser: unknown): { lan: string | null; remote: string | null } {
+/** The hub's home-network address for phones: the page's origin, unless that
+ *  is localhost (useless on a phone), else HUB_LAN_URL. Read at request time,
+ *  so values from .env.local apply. */
+export function homeAddress(fromBrowser: unknown): string | null {
   const env = process.env.HUB_LAN_URL?.trim();
-  const browser = typeof lanFromBrowser === "string" ? lanFromBrowser.trim() : "";
+  const browser = typeof fromBrowser === "string" ? fromBrowser.trim() : "";
   const lan = (browser && !isLoopback(browser) ? browser : env) || null;
+  return lan?.replace(/\/+$/, "") ?? null;
+}
+
+/** The addresses a phone should use, as put into the pairing QR. */
+function addresses(lanFromBrowser: unknown): { lan: string | null; remote: string | null } {
   const remote = process.env.HUB_PUBLIC_URL?.trim() || null;
-  return { lan: lan?.replace(/\/+$/, "") ?? null, remote: remote?.replace(/\/+$/, "") ?? null };
+  return { lan: homeAddress(lanFromBrowser), remote: remote?.replace(/\/+$/, "") ?? null };
+}
+
+/** QR code as SVG via the qrencode CLI, or null if it isn't installed. */
+export function qrSvg(text: string): string | null {
+  try {
+    return execFileSync("qrencode", ["-t", "SVG", "-m", "2", "-s", "6", "-o", "-", text], { encoding: "utf8" });
+  } catch {
+    return null;
+  }
 }
 
 /** Returns true if it handled the request. */
@@ -64,13 +79,8 @@ export async function handlePairing(req: http.IncomingMessage, res: http.ServerR
       const q = new URLSearchParams({ v: "1", t: token, lan, ca: caFingerprint() });
       if (remote) q.set("remote", remote);
       const uri = `ownsee://pair?${q}`;
-      let qrSvg: string | null = null;
-      try {
-        qrSvg = execFileSync("qrencode", ["-t", "SVG", "-m", "2", "-s", "6", "-o", "-", uri], { encoding: "utf8" });
-      } catch {
-        // qrencode missing: the UI falls back to showing the link.
-      }
-      json(res, 200, { uri, qrSvg, expires, lan, remote });
+      // qrSvg is null if qrencode is missing; the UI then shows the link.
+      json(res, 200, { uri, qrSvg: qrSvg(uri), expires, lan, remote });
       return true;
     }
 

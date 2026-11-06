@@ -6,8 +6,11 @@ Camera Hub is a self-hosted, ad-free ONVIF/NVR viewer: a small home hub serves a
 
 ## Commands
 
+In normal use the hub runs as the systemd service `ownsee-hub` (`scripts/install-service.sh`), not from a terminal. **Backup, restore, fresh install, VPS rebuild and the rules for handling secrets are in `docs/OPERATIONS.md`; follow it for any of those tasks.**
+
 ```bash
-npm start        # node src/server.ts — the hub, on :3000; spawns bin/go2rtc
+sudo systemctl restart ownsee-hub   # after code or .env.local changes; logs: journalctl -u ownsee-hub -f
+npm start        # node src/server.ts — the hub, on :3000; spawns bin/go2rtc (stop the service first)
 npm run dev      # same, with node --watch
 npx tsc          # type-check only (noEmit); this is the only static check
 ```

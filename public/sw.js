@@ -1,7 +1,7 @@
 // Network-first service worker: always try the hub for fresh files, and fall
 // back to the cached app shell only when offline. (Cache-first served stale UI
 // after updates.) Bump CACHE when the shell list changes.
-const CACHE = "camhub-v3";
+const CACHE = "camhub-v4";
 const SHELL = ["/", "/index.html", "/app.js", "/style.css", "/devices.js", "/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {

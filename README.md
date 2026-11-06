@@ -62,6 +62,21 @@ npm start
 # open http://localhost:3000  (or http://<hub-lan-ip>:3000 from your phone)
 ```
 
+### Running as a service
+
+```bash
+sudo bash scripts/install-service.sh "$(command -v node)"   # systemd unit ownsee-hub
+journalctl -u ownsee-hub -f                                 # logs
+```
+
+It starts at boot and restarts within seconds if it stops. On Windows with WSL, also run
+`scripts/windows-autostart.ps1` once (elevated) so WSL and the phone port forward come up
+at login.
+
+**Backups, moving to a new machine, and rebuilding the VPS: see
+[docs/OPERATIONS.md](docs/OPERATIONS.md).** In short, `scripts/backup.sh` archives
+everything that isn't in git (keys, CA, camera list, settings) for your password manager.
+
 ### Running go2rtc separately (optional)
 
 For deployments where go2rtc runs as its own service/container, start the hub with
@@ -165,7 +180,14 @@ cd android && ANDROID_HOME=~/Android/Sdk ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Needs JDK 17+ and the Android SDK (command-line tools are enough).
+Needs JDK 17+ and the Android SDK (command-line tools are enough). Debug builds install
+as a separate app, "OwnSee (dev)".
+
+**Release builds** are signed with a key kept outside the repo
+(`~/.ownsee/signing.properties`, or `OWNSEE_SIGNING=<path>`). Android only installs an
+update over an existing app when both are signed with the same key, so back it up (see
+docs/OPERATIONS.md). `bash scripts/publish-apk.sh` builds the release and hands it to the
+hub, which offers it under Devices → "Get the app" (`/app/ownsee.apk`).
 
 ## Roadmap
 

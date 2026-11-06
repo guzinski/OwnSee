@@ -11,6 +11,7 @@ import { startGo2rtc, stopGo2rtc } from "./go2rtc.ts";
 import { loadSources } from "./sources.ts";
 import { handleRecordings, handlePlayback } from "./playback.ts";
 import { handlePairing } from "./pairing.ts";
+import { handleAppDist } from "./appdist.ts";
 import { ensurePki } from "./pki.ts";
 import { createTlsServer, isPairedRequest } from "./tls-server.ts";
 
@@ -109,6 +110,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse, secur
     }
     if (!secure && (path.startsWith("/api/pair/") || path.startsWith("/api/devices")))
       if (await handlePairing(req, res, path)) return;
+    if ((path === "/api/app" || path.startsWith("/app/")) && handleAppDist(req, res, path, secure)) return;
     if (path.startsWith("/go2rtc/")) return proxyToGo2rtc(req, res);
     await serveStatic(req, res);
   } catch (err) {

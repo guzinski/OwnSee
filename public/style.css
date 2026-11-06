@@ -246,7 +246,8 @@ video-stream .mode, video-stream .status {
   padding: 0.45rem 0.6rem; background: var(--surface-2); border-radius: 8px; font-size: 0.9rem;
 }
 .device-list li.revoked { opacity: 0.5; }
-.pair-box[hidden] { display: none; }
+.pair-box[hidden], .pair-qr[hidden] { display: none; }
+.app-box { margin-bottom: 1rem; }
 .pair-qr { background: #fff; border-radius: 10px; padding: 0.5rem; width: fit-content; margin: 0.5rem auto; }
 .pair-qr svg { display: block; width: 260px; height: 260px; }
 .pair-qr code { color: #000; word-break: break-all; font-size: 0.75rem; }

@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Release signing key, kept OUTSIDE the repo (default ~/.ownsee/signing.properties,
+// or set OWNSEE_SIGNING to another path). Android only installs an update
+// signed with the same key as the installed app, so back this key up.
+val signingFile = file(System.getenv("OWNSEE_SIGNING") ?: "${System.getProperty("user.home")}/.ownsee/signing.properties")
+val signingProps = Properties().apply { if (signingFile.exists()) signingFile.inputStream().use(::load) }
 
 android {
     namespace = "org.ownsee.app"
@@ -15,9 +23,27 @@ android {
         versionName = "0.2.0"
     }
 
+    signingConfigs {
+        if (signingProps.isNotEmpty()) {
+            create("release") {
+                storeFile = file(signingProps.getProperty("storeFile"))
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias")
+                keyPassword = signingProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
+        }
+        debug {
+            // A separate app ("OwnSee (dev)"), so development builds never
+            // replace or collide with the release install.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-dev"
         }
     }
 
