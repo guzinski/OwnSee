@@ -257,6 +257,7 @@ fun RecordingPlayer(
 
     val player = remember(segments, start) {
         ExoPlayer.Builder(ctx).build().apply {
+            volume = 0f // open silent by default (recordings' G.711 audio off)
             setMediaItems(
                 segments.drop(start).mapIndexed { i, seg ->
                     MediaItem.Builder()

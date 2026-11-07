@@ -55,6 +55,7 @@ function makePlayer(streamId) {
   v.mode = PLAYER_MODE;
   v.background = true; // keep buffering when offscreen so tiles stay warm
   v.src = `/go2rtc/api/ws?src=${encodeURIComponent(streamId)}`;
+  if (v.video) v.video.muted = true; // open silent by default (camera audio off)
   return v;
 }
 

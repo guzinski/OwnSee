@@ -290,7 +290,9 @@ video-stream .mode, video-stream .status { display: none; }
 }
 .pb-play { background: var(--cobalt); color: #fff; }
 .app-box { margin-bottom: 1rem; }
-.pair-qr svg { display: block; max-width: 240px; background: #fff; }
+/* qrencode emits preserveAspectRatio="none", so the box must stay square or
+   the code stretches and won't scan. aspect-ratio ties height to width. */
+.pair-qr svg { display: block; width: 240px; max-width: 100%; aspect-ratio: 1 / 1; height: auto; background: #fff; }
 
 /* Recording download progress, on the video above the controls. */
 .dl {

@@ -39,6 +39,8 @@ The hub does no video work. go2rtc converts camera streams for the browser; the 
 
 Native Kotlin app (app id `org.ownsee.app`): Jetpack Compose UI, Media3/ExoPlayer for video, no WebView. It is a second client of the same hub HTTP API as `public/`.
 
+**Two clients, one behaviour: any user-facing change to the web (`public/`) must be made in the app too, and vice versa.** They are separate codebases with no shared UI, so a fix in one does not reach the other. When you change playback, controls, muting, titles/overlays, download, or anything a person sees or does, apply the matching change to both — or tell the user explicitly which client you did *not* touch and why. Treat "it works on the web" as half-done until the app matches.
+
 ```bash
 cd android && ANDROID_HOME=~/Android/Sdk ./gradlew assembleDebug --no-daemon   # → app/build/outputs/apk/debug/app-debug.apk
 adb connect <phone-ip>:<port> && adb install -r app/build/outputs/apk/debug/app-debug.apk
