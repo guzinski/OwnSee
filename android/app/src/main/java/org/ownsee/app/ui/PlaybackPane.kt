@@ -249,10 +249,12 @@ fun RecordingPlayer(
     start: Int,
     paused: Boolean,
     onSegment: (Int) -> Unit,
+    onPlayer: (ExoPlayer?) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
     val report by rememberUpdatedState(onSegment)
+    val reportPlayer by rememberUpdatedState(onPlayer)
     var status by remember(segments, start) { mutableStateOf<Int?>(R.string.loading_recording) }
 
     val player = remember(segments, start) {
@@ -286,7 +288,9 @@ fun RecordingPlayer(
             }
         }
         player.addListener(listener)
+        reportPlayer(player) // let the control bar drive a seek slider
         onDispose {
+            reportPlayer(null)
             player.removeListener(listener)
             player.release()
         }

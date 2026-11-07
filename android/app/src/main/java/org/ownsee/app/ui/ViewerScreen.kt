@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -48,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -130,6 +135,9 @@ fun ViewerScreen(hub: HubClient, camera: CameraInfo, onBack: () -> Unit) {
     }
 
     val seg = current?.let { i -> playback?.segments?.getOrNull(i) }
+    // The recording player publishes itself here so the control bar can show a
+    // seek slider; null while live or between recordings.
+    var recPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
 
     Column(Modifier.fillMaxSize().background(Ground)) {
         Box(
@@ -146,7 +154,7 @@ fun ViewerScreen(hub: HubClient, camera: CameraInfo, onBack: () -> Unit) {
                     LiveVideo(hub.liveUrl(it.id), videoModifier, keepScreenOn = true)
                 }
             } else {
-                RecordingPlayer(hub, camera, p.segments, p.start, paused, onSegment = { current = it }, modifier = videoModifier)
+                RecordingPlayer(hub, camera, p.segments, p.start, paused, onSegment = { current = it }, onPlayer = { recPlayer = it }, modifier = videoModifier)
             }
 
             if (landscape) {
@@ -163,6 +171,7 @@ fun ViewerScreen(hub: HubClient, camera: CameraInfo, onBack: () -> Unit) {
                     date = date,
                     today = today,
                     paused = paused,
+                    player = if (seg != null) recPlayer else null,
                     onBack = goBack,
                     onPause = { paused = !paused },
                     onLive = goLive,
@@ -210,6 +219,7 @@ private fun VideoControls(
     date: LocalDate,
     today: LocalDate,
     paused: Boolean,
+    player: ExoPlayer?,
     onBack: () -> Unit,
     onPause: () -> Unit,
     onLive: () -> Unit,
@@ -235,35 +245,78 @@ private fun VideoControls(
                 color = LiveGreen,
             )
         }
-        Row(
+        Column(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xB80A1414))))
                 .padding(start = 12.dp, end = 12.dp, top = 24.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            if (seg != null) {
-                RoundIconButton(
-                    if (paused) Icons.Play else Icons.Pause,
-                    stringResource(if (paused) R.string.play else R.string.pause),
-                    onPause,
-                )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (seg != null) {
+                    RoundIconButton(
+                        if (paused) Icons.Play else Icons.Pause,
+                        stringResource(if (paused) R.string.play else R.string.pause),
+                        onPause,
+                    )
+                }
+                // Live shows the camera name; on a recording the chosen time is
+                // already in the panel below, so nothing covers the video.
+                if (seg == null) {
+                    Text(
+                        camera.name,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.headlineSmall.copy(shadow = Shadow(Color.Black, blurRadius = 12f)),
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                if (seg == null) SaveFrameButton(hub, camera) else DownloadButton(hub, camera, seg)
+                RoundIconButton(Icons.FullScreen, stringResource(R.string.full_screen), onFullScreen)
             }
-            Text(
-                if (seg == null) camera.name
-                else stringResource(R.string.day_at_time, LocalContext.current.dayLabel(date, today), "${seg.hour}:${seg.minute}"),
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall.copy(shadow = Shadow(Color.Black, blurRadius = 12f)),
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (seg == null) SaveFrameButton(hub, camera) else DownloadButton(hub, camera, seg)
-            RoundIconButton(Icons.FullScreen, stringResource(R.string.full_screen), onFullScreen)
+            if (player != null) RecordingSeekBar(player)
         }
     }
+}
+
+/** A scrubber for the playing recording segment: drag to seek within it. */
+@Composable
+private fun RecordingSeekBar(player: ExoPlayer) {
+    var position by remember { mutableStateOf(0L) }
+    var duration by remember { mutableStateOf(0L) }
+    var scrub by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(player) {
+        while (true) {
+            if (scrub == null) {
+                position = player.currentPosition.coerceAtLeast(0L)
+                duration = player.duration.let { if (it > 0) it else 0L }
+            }
+            delay(400)
+        }
+    }
+    val value = scrub ?: if (duration > 0) position.toFloat() / duration else 0f
+    Slider(
+        value = value.coerceIn(0f, 1f),
+        onValueChange = { scrub = it },
+        onValueChangeFinished = {
+            scrub?.let { if (duration > 0) player.seekTo((it * duration).toLong()) }
+            scrub = null
+        },
+        colors = SliderDefaults.colors(
+            thumbColor = Color.White,
+            activeTrackColor = Color.White,
+            inactiveTrackColor = Color.White.copy(alpha = 0.3f),
+        ),
+        modifier = Modifier.fillMaxWidth().height(28.dp),
+    )
 }
 
 @Composable
