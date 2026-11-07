@@ -27,6 +27,17 @@ data class Segment(val fileName: String, val begin: String, val end: String, val
     /** "HH" of the start time; begin is "YYYY-MM-DD HH:MM:SS". */
     val hour: String get() = begin.substring(11, 13)
     val minute: String get() = begin.substring(14, 16)
+
+    /** Length in seconds from begin/end. The NVR stream carries no duration of
+     *  its own, so the seek bar needs this; falls back to 5 min like the hub. */
+    val durationSec: Long
+        get() = runCatching {
+            val f = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            java.time.Duration.between(
+                java.time.LocalDateTime.parse(begin, f),
+                java.time.LocalDateTime.parse(end, f),
+            ).seconds.coerceAtLeast(1)
+        }.getOrDefault(300)
 }
 
 /**

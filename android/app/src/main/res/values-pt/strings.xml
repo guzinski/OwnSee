@@ -59,6 +59,7 @@
     <string name="pair_again">Parear de novo</string>
     <string name="scan_code">Escanear código de pareamento</string>
     <string name="manual_title">Ou digite um endereço (só na rede de casa)</string>
+    <string name="app_version">Versão %1$s (%2$d)</string>
     <string name="hub_address">Endereço do hub</string>
     <string name="hub_address_hint">ip-do-hub:3000</string>
     <string name="connect">Conectar</string>

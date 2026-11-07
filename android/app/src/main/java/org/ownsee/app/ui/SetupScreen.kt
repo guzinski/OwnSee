@@ -37,6 +37,7 @@ import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.ownsee.app.BuildConfig
 import org.ownsee.app.HubAddress
 import org.ownsee.app.HubClient
 import org.ownsee.app.Pairing
@@ -171,5 +172,12 @@ fun SetupScreen(
             OutlinedButton(onClick = ::connectManual, enabled = busy == null) { Text(stringResource(R.string.connect)) }
             if (onCancel != null) TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
         }
+
+        HorizontalDivider()
+        Text(
+            stringResource(R.string.app_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

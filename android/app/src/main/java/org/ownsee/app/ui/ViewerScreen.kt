@@ -282,32 +282,40 @@ private fun VideoControls(
                 if (seg == null) SaveFrameButton(hub, camera) else DownloadButton(hub, camera, seg)
                 RoundIconButton(Icons.FullScreen, stringResource(R.string.full_screen), onFullScreen)
             }
-            if (player != null) RecordingSeekBar(player)
+            if (player != null && seg != null) RecordingSeekBar(player, seg.durationSec * 1000L)
         }
     }
 }
 
-/** A scrubber for the playing recording segment: drag to seek within it. */
+/**
+ * Progress + scrubber for the playing recording. The NVR stream has no
+ * duration of its own, so [durationMs] (the segment's known length) is the
+ * denominator for the position. Seeking is clamped to what's buffered, since
+ * the stream is generated forward and the far end isn't there to jump to yet.
+ */
 @Composable
-private fun RecordingSeekBar(player: ExoPlayer) {
+private fun RecordingSeekBar(player: ExoPlayer, durationMs: Long) {
     var position by remember { mutableStateOf(0L) }
-    var duration by remember { mutableStateOf(0L) }
+    var buffered by remember { mutableStateOf(0L) }
     var scrub by remember { mutableStateOf<Float?>(null) }
     LaunchedEffect(player) {
         while (true) {
             if (scrub == null) {
                 position = player.currentPosition.coerceAtLeast(0L)
-                duration = player.duration.let { if (it > 0) it else 0L }
+                buffered = player.bufferedPosition.coerceAtLeast(0L)
             }
-            delay(400)
+            delay(300)
         }
     }
-    val value = scrub ?: if (duration > 0) position.toFloat() / duration else 0f
+    val denom = durationMs.coerceAtLeast(1L)
     Slider(
-        value = value.coerceIn(0f, 1f),
+        value = (scrub ?: position.toFloat() / denom).coerceIn(0f, 1f),
         onValueChange = { scrub = it },
         onValueChangeFinished = {
-            scrub?.let { if (duration > 0) player.seekTo((it * duration).toLong()) }
+            scrub?.let {
+                val target = (it * denom).toLong().coerceIn(0L, buffered)
+                player.seekTo(target)
+            }
             scrub = null
         },
         colors = SliderDefaults.colors(

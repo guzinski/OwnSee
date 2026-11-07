@@ -19,8 +19,8 @@ android {
         applicationId = "org.ownsee.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 6
+        versionName = "0.3.3"
     }
 
     signingConfigs {
@@ -54,6 +54,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true // for BuildConfig.VERSION_NAME/VERSION_CODE in the UI
     }
 }
 

@@ -60,6 +60,7 @@
     <string name="pair_again">Pair again</string>
     <string name="scan_code">Scan pairing code</string>
     <string name="manual_title">Or enter an address (home network only)</string>
+    <string name="app_version">Version %1$s (%2$d)</string>
     <string name="hub_address">Hub address</string>
     <string name="hub_address_hint">hub-ip:3000</string>
     <string name="connect">Connect</string>
